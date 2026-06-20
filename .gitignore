@@ -1,0 +1,51 @@
+# Dependencies
+node_modules
+services/*/node_modules/
+
+# Build output
+services/*/dist/
+services/*/build/
+services/*/.build/
+
+# Environment
+.env
+services/*/.env
+services/*/.env.local
+services/*/.env.*.local
+
+# Playwright
+services/*/test-results/
+services/*/playwright-report/
+services/*/blob-report/
+services/*/playwright/.cache/
+
+# Test coverage
+services/*/coverage/
+services/*/.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime
+pids
+*.pid
+*.pid.lock
+*.seed
+.tmp
+.temp
+
+# Editor
+.vscode/*.json
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

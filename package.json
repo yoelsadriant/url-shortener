@@ -1,0 +1,27 @@
+{
+  "name": "url-shortener",
+  "private": true,
+  "workspaces": {
+    "packages": ["services/*"],
+    "nohoist": [
+      "**/vite",
+      "**/vite/**",
+      "**/@vitejs/**",
+      "**/vitest",
+      "**/vitest/**"
+    ]
+  },
+  "scripts": {
+    "up": "docker compose up",
+    "up:build": "docker compose up --build",
+    "down": "docker compose down",
+    "logs": "docker compose logs -f",
+    "dev:backend": "yarn workspace backend start:dev",
+    "dev:frontend": "yarn workspace url-shortener-frontend dev",
+    "build:all": "yarn workspaces run build",
+    "test:backend": "yarn workspace backend test",
+    "test:backend:e2e": "yarn workspace backend test:e2e",
+    "test:frontend": "yarn workspace url-shortener-frontend test:run",
+    "test:all": "yarn workspaces run test"
+  }
+}

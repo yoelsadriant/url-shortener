@@ -1,0 +1,14 @@
+node_modules
+services/*/node_modules
+services/*/dist
+services/*/coverage
+services/*/test-results
+services/*/playwright-report
+services/*/blob-report
+services/*/.env
+services/*/.env.*
+!services/*/.env.example
+.git
+.gitignore
+*.log
+.DS_Store
