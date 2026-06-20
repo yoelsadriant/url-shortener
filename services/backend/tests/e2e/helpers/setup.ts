@@ -1,0 +1,10 @@
+process.env.PORT = '3000';
+process.env.PUBLIC_BASE_URL = 'http://localhost:3000';
+process.env.FRONTEND_URL = 'http://localhost:5173';
+process.env.AWS_REGION = 'us-east-1';
+process.env.URL_TABLE = 'urls';
+process.env.URL_USER_INDEX = 'user-index';
+process.env.USER_TABLE = 'users';
+process.env.USER_USERNAME_INDEX = 'username-index';
+process.env.JWT_SECRET = 'e2e-secret';
+process.env.JWT_EXPIRES_IN = '1h';
