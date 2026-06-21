@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { shortenUrl } from '@/actions/urlActions';
 import type { ShortenResult } from '@/types';
 
@@ -10,27 +10,35 @@ interface State {
 
 export interface UseUrlShortenerReturn extends State {
   shorten: (url: string) => Promise<void>;
-  reset: () => void;
 }
 
 const initialState: State = { result: null, isLoading: false, error: null };
 
-export function useUrlShortener(): UseUrlShortenerReturn {
+export function useUrlShortener(userId: string | null): UseUrlShortenerReturn {
   const [state, setState] = useState<State>(initialState);
 
-  const shorten = useCallback(async (url: string) => {
-    setState({ result: null, isLoading: true, error: null });
-    try {
-      const result = await shortenUrl(url);
-      setState({ result, isLoading: false, error: null });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to shorten URL';
-      setState({ result: null, isLoading: false, error: message });
-    }
-  }, []);
+  const shorten = useCallback(
+    async (url: string) => {
+      if (!userId) {
+        setState({
+          result: null,
+          isLoading: false,
+          error: 'You must be signed in to shorten URLs',
+        });
+        return;
+      }
+      setState({ result: null, isLoading: true, error: null });
+      try {
+        const result = await shortenUrl(url, userId);
+        setState({ result, isLoading: false, error: null });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to shorten URL';
+        setState({ result: null, isLoading: false, error: message });
+      }
+    },
+    [userId],
+  );
 
-  const reset = useCallback(() => setState(initialState), []);
-
-  return { ...state, shorten, reset };
+  return { ...state, shorten };
 }

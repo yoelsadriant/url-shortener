@@ -1,7 +1,16 @@
 import { test, expect } from '@playwright/test';
 
+const FAKE_USER_ID = '00000000-0000-4000-8000-000000000000';
+
 test.describe('URL Shortener', () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(
+      ([userId]) => {
+        localStorage.setItem('shortener.userId', userId);
+        localStorage.setItem('shortener.token', 'cached-token');
+      },
+      [FAKE_USER_ID],
+    );
     await page.goto('/');
   });
 

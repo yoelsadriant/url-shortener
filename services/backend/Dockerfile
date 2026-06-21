@@ -1,34 +1,33 @@
-# Build context: repo root (workspace-aware)
+# Build context: services/backend (its own dir)
 
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package.json yarn.lock ./
-COPY services/backend/package.json ./services/backend/
-COPY services/frontend/package.json ./services/frontend/
-RUN yarn install --frozen-lockfile
+COPY package.json package-lock.json ./
+RUN npm ci
 
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/services ./services
-COPY services/backend ./services/backend
-RUN yarn workspace backend build
+COPY . ./
+RUN npm run build
 
 FROM node:22-alpine AS dev
-WORKDIR /app/services/backend
+WORKDIR /app
 ENV NODE_ENV=development
-COPY --from=deps /app/node_modules /app/node_modules
-COPY --from=deps /app/services /app/services
-COPY services/backend /app/services/backend
+COPY --from=deps /app/node_modules ./node_modules
+COPY . ./
 EXPOSE 3000
-CMD ["yarn", "start:dev"]
+CMD ["npm", "run", "start:dev"]
 
 FROM node:22-alpine AS prod
 WORKDIR /app
 ENV NODE_ENV=production
-COPY services/backend/package.json ./
-RUN yarn install --production --ignore-scripts --prefer-offline
-COPY --from=build /app/services/backend/dist ./dist
+RUN apk add --no-cache wget
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts
+COPY --from=build /app/dist ./dist
 EXPOSE 3000
 USER node
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:3000/health || exit 1
 CMD ["node", "dist/main.js"]

@@ -1,9 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
+  Put,
   Query,
   Redirect,
 } from '@nestjs/common';
@@ -11,24 +15,36 @@ import { CreateShortUrlDto } from './dto/create-short-url.dto';
 import { GetByCodeDto } from './dto/get-by-code.dto';
 import { GetByUserDto } from './dto/get-by-user.dto';
 import { UrlsService } from './urls.service';
+import { RenameCodeDto } from './dto/rename-code.dto';
 
-@Controller('url')
+@Controller()
 export class UrlsController {
   constructor(private readonly urlsService: UrlsService) {}
 
-  @Post()
-  create(@Body() args: CreateShortUrlDto) {
-    return this.urlsService.create(args);
+  @Post('url')
+  create(@Body() input: CreateShortUrlDto) {
+    return this.urlsService.create(input);
   }
 
-  @Get()
+  @Get('url')
   getByUser(@Query() query: GetByUserDto) {
     return this.urlsService.getByUser(query.user);
   }
 
+  @Delete('url/:code')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  delete(@Param() params: GetByCodeDto, @Query() query: GetByUserDto) {
+    return this.urlsService.delete(params.code, query.user);
+  }
+
+  @Put('url/:code/rename')
+  renameCode(@Param('code') code: string, @Body() input: RenameCodeDto) {
+    return this.urlsService.renameCode(code, input.newCode);
+  }
+
   @Get(':code')
   @Redirect()
-  async getByCode(@Param() params: GetByCodeDto) {
+  async redirect(@Param() params: GetByCodeDto) {
     const item = await this.urlsService.getByCode(params.code);
     return { url: item.originUrl, statusCode: 302 };
   }

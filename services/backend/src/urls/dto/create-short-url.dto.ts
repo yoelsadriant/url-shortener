@@ -1,4 +1,11 @@
-import { IsOptional, IsString, IsUrl, IsUUID, Matches } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsUrl,
+  IsUUID,
+  Length,
+  Matches,
+} from 'class-validator';
 
 export class CreateShortUrlDto {
   @IsUrl({ require_protocol: true })
@@ -9,6 +16,7 @@ export class CreateShortUrlDto {
 
   @IsString()
   @IsOptional()
+  @Length(1, 32)
   @Matches(/^[a-zA-Z0-9_-]+$/)
   customUrl?: string;
 }

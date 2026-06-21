@@ -64,7 +64,7 @@ describe('URLs (e2e)', () => {
     });
   });
 
-  describe('GET /url/:code', () => {
+  describe('GET /:code', () => {
     it('302 redirects to the original URL', async () => {
       await request(app.getHttpServer()).post('/url').send({
         url: 'https://example.com',
@@ -73,13 +73,30 @@ describe('URLs (e2e)', () => {
       });
 
       await request(app.getHttpServer())
-        .get('/url/Abcd1234')
+        .get('/Abcd1234')
         .expect(302)
         .expect('Location', 'https://example.com');
     });
 
     it('404 for an unknown code', () => {
-      return request(app.getHttpServer()).get('/url/Unknown1').expect(404);
+      return request(app.getHttpServer()).get('/Unknown1').expect(404);
+    });
+
+    it('404 (not 400) for any reasonable unknown code shape', async () => {
+      await request(app.getHttpServer()).get('/nonexistent').expect(404);
+      await request(app.getHttpServer()).get('/abc').expect(404);
+    });
+
+    it('302 redirects for a custom code with dashes/underscores', async () => {
+      await request(app.getHttpServer()).post('/url').send({
+        url: 'https://custom.example',
+        userId: 'a1b2c3d4-e5f6-4a7b-8c9d-000000000099',
+        customUrl: 'my-custom_link',
+      });
+      await request(app.getHttpServer())
+        .get('/my-custom_link')
+        .expect(302)
+        .expect('Location', 'https://custom.example');
     });
   });
 
@@ -104,6 +121,66 @@ describe('URLs (e2e)', () => {
       return request(app.getHttpServer())
         .get('/url?user=not-a-uuid')
         .expect(400);
+    });
+  });
+
+  describe('DELETE /url/:code', () => {
+    const owner = 'a1b2c3d4-e5f6-4a7b-8c9d-0000000000aa';
+    const other = 'a1b2c3d4-e5f6-4a7b-8c9d-0000000000bb';
+
+    beforeEach(async () => {
+      await request(app.getHttpServer()).post('/url').send({
+        url: 'https://example.com',
+        userId: owner,
+        customUrl: 'DelMe123',
+      });
+    });
+
+    it('204 when the owner deletes their own URL', async () => {
+      await request(app.getHttpServer())
+        .delete(`/url/DelMe123?user=${owner}`)
+        .expect(204);
+      await request(app.getHttpServer()).get('/DelMe123').expect(404);
+    });
+
+    it('404 when another user tries to delete it', async () => {
+      await request(app.getHttpServer())
+        .delete(`/url/DelMe123?user=${other}`)
+        .expect(404);
+      await request(app.getHttpServer()).get('/DelMe123').expect(302);
+    });
+
+    it('404 for a non-existent code', () => {
+      return request(app.getHttpServer())
+        .delete(`/url/Unknown1?user=${owner}`)
+        .expect(404);
+    });
+
+    it('400 when the user query is not a valid UUID', () => {
+      return request(app.getHttpServer())
+        .delete('/url/DelMe123?user=not-a-uuid')
+        .expect(400);
+    });
+  });
+
+  describe('PUT /url/:code/rename', () => {
+    const owner = 'a1b2c3d4-e5f6-4a7b-8c9d-0000000000aa';
+    const newCode = 'newUpdatedCode';
+
+    beforeEach(async () => {
+      await request(app.getHttpServer()).post('/url').send({
+        url: 'https://example.com',
+        userId: owner,
+        customUrl: 'updateMe123',
+      });
+    });
+
+    it('200 when the update success', async () => {
+      const res = await request(app.getHttpServer())
+        .put(`/url/updateMe123/rename`)
+        .send({ newCode })
+        .expect(200);
+      expect(res.body.shortUrl).toBe(`http://localhost:3000/${newCode}`);
     });
   });
 });

@@ -59,6 +59,32 @@ export class InMemoryDdb {
         );
         return Promise.resolve({ Items: items });
       }
+      case 'DeleteCommand': {
+        const keyVal = Object.values(input['Key'] as Record<string, string>)[0];
+        const existing = t[keyVal];
+        const cond = input['ConditionExpression'] as string | undefined;
+        // Support a single equality condition like `userId = :uid`.
+        if (cond) {
+          const exprVals = (input['ExpressionAttributeValues'] ?? {}) as Record<
+            string,
+            unknown
+          >;
+          const [lhs, rhs] = cond.split('=').map((s) => s.trim());
+          const expected = exprVals[rhs];
+          if (!existing || existing[lhs] !== expected) {
+            return Promise.reject(
+              new ConditionalCheckFailedException({
+                message: 'condition not met',
+                $metadata: {},
+              }),
+            );
+          }
+        } else if (!existing) {
+          return Promise.resolve({});
+        }
+        delete t[keyVal];
+        return Promise.resolve({});
+      }
       default:
         return Promise.resolve({});
     }

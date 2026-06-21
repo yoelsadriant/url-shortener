@@ -2,240 +2,121 @@
 
 A production-style URL shortener monorepo. Shorten long URLs and manage them through a React frontend backed by a NestJS API and DynamoDB.
 
+## Get it running
+
+Needs **Node ≥ 20** and **Docker**.
+
+```bash
+# 1. Frontend deps
+npm --prefix services/frontend install
+
+# 2. Backend .env
+cp services/backend/.env.example services/backend/.env
+
+# 3. Backend + DynamoDB Local
+docker compose -f services/backend/compose.yml --profile dev up --build
+
+# 4. Frontend
+npm --prefix services/frontend run dev
+```
+
+Open vite url→ sign up → shorten a link.
+
+**Jump to:** [Architecture](#architecture) · [Design choices](#design-choices) · [API](#api) · [Schema](#schema) · [Testing](#testing) · [Deploy](#deploy-to-aws-cdk)
+
 ## Architecture
 
 ```mermaid
 graph TD
-    Browser["Browser / Frontend\n(React + Vite · :5173)"]
+    Browser["Frontend\n(React + Vite · :5173)"]
     Backend["Backend\n(NestJS · :3000)"]
-    DDB_urls[("DynamoDB\nurls table")]
-    DDB_users[("DynamoDB\nusers table")]
+    DDB_urls[("urls table")]
+    DDB_users[("users table")]
 
-    Browser -->|"POST /auth/register\nPOST /auth/login\nPOST /url\nGET  /url/:code\nGET  /url?user="| Backend
+    Browser -->|"POST /auth/{register,login}\nPOST /url\nGET  /url?user=\nGET  /:code (redirect)"| Backend
     Backend --> DDB_urls
     Backend --> DDB_users
 ```
 
-## Services
+## Design choices
 
-| Service | Path | Description |
-|---|---|---|
-| **backend** | `services/backend` | Auth, URL creation, redirect |
-| **frontend** | `services/frontend` | React UI — shorten URLs via the backend API |
+- **React + shadcn/ui** — chosen for simplicity; no Figma design step.
+- **NestJS over Express** — DI + opinionated module layout keep code consistent across the team; Express invites per-contributor structure that hurts context-switching.
+- **Fargate over Lambda** — bursty traffic with idle gaps would hit Lambda cold starts (even with a lambdalith). Fargate stays warm.
+- **DynamoDB over Postgres/Mongo + Redis** — less config, lower cost, consistent 4–8 ms latency regardless of item count. Good fit for read-heavy workloads; enable DAX if a viral link >10k QPS creates a hot partition.
+- **Local auth over OAuth** — OAuth needs provider app registration (Google etc.), out of scope and belongs in its own service.
+- **S3 + CloudFront** — Vite runs natively on the host in dev, prod ships to S3 + CloudFront via CDK (see [Deploy](#deploy-to-aws-cdk)). Redirect requests still hit the backend, which keeps the door open for analytics.
+- **Analytics (future)** — clickstream goes to Kinesis Firehose → Parquet in S3 → Athena, not through the app service.
 
-## Data flow
+## API
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant FE as Frontend
-    participant BE as Backend
-    participant DDB as DynamoDB
+Base URL `http://localhost:3000`. Authenticated endpoints take `Authorization: Bearer <token>`.
 
-    U->>FE: paste long URL + submit
-    FE->>BE: POST /url {url, userId}
-    BE->>DDB: PutItem (urls table)
-    BE-->>FE: {shortUrl}
-    FE-->>U: show short URL
+| Method | Path                | Body / Header                 | Response                            |
+| ------ | ------------------- | ----------------------------- | ----------------------------------- |
+| `GET`  | `/health`           | —                             | `{ status, uptimeSeconds, ... }`    |
+| `POST` | `/auth/register`    | `{ username, password }`      | `{ token }`                         |
+| `POST` | `/auth/login`       | `{ username, password }`      | `{ token }`                         |
+| `GET`  | `/auth/me`          | Bearer                        | `{ userId, username, createdAt }`   |
+| `POST` | `/url`              | `{ url, userId, customUrl? }` | `{ shortUrl }`                      |
+| `GET`  | `/url?user=:userId` | —                             | `Url[]`                             |
+| `GET`  | `/:code`            | —                             | `302 → originUrl` (short link)      |
 
-    U->>BE: GET /url/:code
-    BE->>DDB: GetItem
-    BE-->>U: 302 → originUrl
-```
+Validation: `username` 3–20 `[a-zA-Z0-9_]`, `password` 8–64, `customUrl` 1–32 `[a-zA-Z0-9_-]`. Passwords stored as `salt:hash` (`salt` = 16 hex bytes, `hash` = `SHA-256(salt + password)`).
 
-## Auth flow
+## Schema
 
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant BE as Backend
-    participant DDB as DynamoDB
+- **`urls`** — PK `code`, GSI `user-index` on `userId`. Plus `originUrl`, `createdAt`.
+- **`users`** — PK `userId` (UUID v4), GSI `username-index` on `username`. Plus `password`, `createdAt`.
 
-    C->>BE: POST /auth/register {username, password}
-    BE->>DDB: Query username GSI (check uniqueness)
-    BE->>DDB: PutItem {userId, username, salt:hash, createdAt}
-    BE-->>C: {token: JWT}
+## Environment
 
-    C->>BE: POST /auth/login {username, password}
-    BE->>DDB: Query username GSI
-    BE->>BE: verify SHA-256(salt + password)
-    BE-->>C: {token: JWT}
-
-    C->>BE: GET /auth/me (Bearer token)
-    BE->>BE: validate JWT → extract userId
-    BE->>DDB: GetItem (users table)
-    BE-->>C: {userId, username, createdAt}
-```
-
-Passwords are stored as `salt:hash` where `salt` is 16 random bytes (hex) and `hash` is `SHA-256(salt + password)`.
-
-## Prerequisites
-
-- [Node.js](https://nodejs.org) ≥ 20
-- [Yarn](https://yarnpkg.com) v1
-- [Docker](https://www.docker.com) + Docker Compose
-
-## Quick start (Docker)
-
-```bash
-cp .env.example .env
-# generate a JWT_SECRET and paste it into .env
-openssl rand -base64 32
-```
-
-**Development** — hot reload, DynamoDB Local on port `8000`:
-
-```bash
-docker compose -f docker-compose.dev.yml up --build
-```
-
-Services start at:
-- Frontend → http://localhost:5173
-- Backend API → http://localhost:3000
-
-**Production** — nginx + optimised builds, connects to real AWS DynamoDB:
-
-```bash
-docker compose -f docker-compose.prod.yml up --build
-```
-
-Services start at:
-- Frontend → http://localhost:80
-- Backend API → http://localhost:3000
-
-## Local development (without Docker)
-
-### 1. Install dependencies
-
-```bash
-yarn install
-```
-
-### 2. Start DynamoDB Local
-
-```bash
-docker run -p 8000:8000 amazon/dynamodb-local -jar DynamoDBLocal.jar -sharedDb -inMemory
-```
-
-### 3. Create tables
-
-```bash
-export AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_REGION=ap-southeast-1
-export URL_TABLE=urls URL_USER_INDEX=user-index
-export USER_TABLE=users USER_USERNAME_INDEX=username-index
-DYNAMODB_ENDPOINT=http://localhost:8000 ./scripts/init-dynamo.sh
-```
-
-### 4. Copy and fill environment files
-
-```bash
-cp services/backend/.env.example services/backend/.env
-cp services/frontend/.env.example services/frontend/.env
-```
-
-### 5. Start services
-
-```bash
-yarn dev:backend    # NestJS watch mode on :3000
-yarn dev:frontend   # Vite dev server on :5173
-```
-
-## Environment variables
-
-### `services/backend/.env`
-
-| Variable | Example | Description |
-|---|---|---|
-| `PORT` | `3000` | HTTP port |
-| `PUBLIC_BASE_URL` | `http://localhost:3000` | Base URL prepended to short codes |
-| `FRONTEND_URL` | `http://localhost:5173` | Used for CORS |
-| `AWS_REGION` | `ap-southeast-1` | |
-| `AWS_ENDPOINT` | `http://localhost:8000` | DynamoDB Local endpoint (omit in prod) |
-| `AWS_ACCESS_KEY_ID` | `local` | |
-| `AWS_SECRET_ACCESS_KEY` | `local` | |
-| `URL_TABLE` | `urls` | DynamoDB table name |
-| `URL_USER_INDEX` | `user-index` | GSI for listing URLs by user |
-| `USER_TABLE` | `users` | DynamoDB table name |
-| `USER_USERNAME_INDEX` | `username-index` | GSI for username lookup |
-| `JWT_SECRET` | `dev-secret-change-me` | **Change in production** |
-| `JWT_EXPIRES_IN` | `7d` | Token TTL |
-
-### `services/frontend/.env`
-
-| Variable | Example | Description |
-|---|---|---|
-| `VITE_API_URL` | `http://localhost:3000` | Backend API base URL |
-
-## API reference
-
-### Auth
-
-| Method | Path | Body | Response |
-|---|---|---|---|
-| `POST` | `/auth/register` | `{ username, password }` | `{ token }` |
-| `POST` | `/auth/login` | `{ username, password }` | `{ token }` |
-| `GET` | `/auth/me` | — (Bearer token) | `{ userId, username, createdAt }` |
-
-**Validation rules**
-- `username`: 3–20 chars, `[a-zA-Z0-9_]` only
-- `password`: 8–64 chars
-
-### URLs
-
-| Method | Path | Body / Query | Response |
-|---|---|---|---|
-| `POST` | `/url` | `{ url, userId, customUrl? }` | `{ shortUrl }` |
-| `GET` | `/url/:code` | — | `302` redirect |
-| `GET` | `/url?user=:userId` | `user` (UUID) | `Url[]` |
-
-## DynamoDB schema
-
-### `urls` table
-
-| Attribute | Type | Key |
-|---|---|---|
-| `code` | String | PK |
-| `userId` | String | GSI PK (`user-index`) |
-| `originUrl` | String | |
-| `createdAt` | String (ISO 8601) | |
-
-### `users` table
-
-| Attribute | Type | Key |
-|---|---|---|
-| `userId` | String (UUID v4) | PK |
-| `username` | String | GSI PK (`username-index`) |
-| `password` | String (`salt:hash`) | |
-| `createdAt` | String (ISO 8601) | |
+Backend reads `services/backend/.env` (template: [`.env.example`](services/backend/.env.example)). Compose overrides `AWS_ENDPOINT` to `dynamodb-local:8000`, so the same file works dockerised or not. Frontend uses only `VITE_API_URL`.
 
 ## Testing
 
-### Unit + integration (no external services)
+| Command                    | Scope                              |
+| -------------------------- | ---------------------------------- |
+| `npm run test:backend`     | NestJS unit + integration          |
+| `npm run test:backend:e2e` | Backend e2e (in-memory DDB stub)   |
+| `npm run test:frontend`    | Vitest unit + component            |
+| `npm run test:load`        | k6 load test (needs running stack) |
+
+Frontend e2e: `npm --prefix services/frontend run test:e2e` against a running stack.
+
+**Load test** ([`tests/redirect-load.js`](tests/redirect-load.js)) ramps redirects to 5000 req/s with a 20 req/s writer, p95 < 200 ms, error < 1%. Override with `BASE_URL` / `SEED_COUNT`. **Canary** ([`tests/redirect-canary.js`](tests/redirect-canary.js)) is a single-iteration probe of register → create → redirect; add a `schedule:` trigger to [`canary.yml`](.github/workflows/canary.yml) to wire it to prod.
+
+## Deploy to AWS (CDK)
+
+Three stacks in [`infra/`](infra/):
+
+| Stack                  | What it creates |
+| ---------------------- | --------------- |
+| `UrlShortenerData`     | DynamoDB tables (PAY_PER_REQUEST, PITR, `RETAIN`). |
+| `UrlShortenerBackend`  | Fargate (0.25 vCPU / 0.5 GB) + ALB in default VPC. JWT in Secrets Manager. IAM least-privilege. |
+| `UrlShortenerFrontend` | Private S3 + CloudFront (OAC, SPA fallback). Uploads `services/frontend/dist/`. |
 
 ```bash
-yarn test:backend    # NestJS unit + integration
-yarn test:frontend   # Vitest unit + component
+cd infra && npm install
+npx cdk bootstrap aws://<ACCOUNT_ID>/ap-southeast-1   # once per account/region
+npx cdk deploy UrlShortenerData UrlShortenerBackend   # ~10 min, outputs BackendUrl
+
+export VITE_API_URL=http://<BackendUrl>
+npm --prefix ../services/frontend run build
+npx cdk deploy UrlShortenerFrontend
 ```
 
-### E2E — backend (no external services)
+Redeploy backend: `cdk deploy UrlShortenerBackend`. Tear down: `cdk destroy UrlShortenerFrontend UrlShortenerBackend` (tables are `RETAIN`ed).
 
-The e2e suite uses an in-memory DynamoDB stub — no running database required.
+**Cost (Singapore, idle):**
 
-```bash
-yarn test:backend:e2e
-```
+| Service                              | Monthly  |
+| ------------------------------------ | -------- |
+| Fargate (0.25 vCPU / 0.5 GB)         | ~$10     |
+| ALB                                  | ~$16     |
+| DynamoDB on-demand (low)             | <$1      |
+| S3 + CloudFront (low, often free)    | <$1      |
+| Secrets Manager + ECR + CloudWatch   | <$2      |
+| **Floor**                            | **~$28** |
 
-### E2E — frontend (Playwright, requires the full stack)
-
-Start DynamoDB Local and the backend first, then run Playwright:
-
-```bash
-# Terminal 1 — spin up DynamoDB Local with tables pre-created
-docker compose -f docker-compose.dev.yml up dynamodb-local dynamodb-init
-
-# Terminal 2 — start the backend pointing at it
-yarn dev:backend
-
-# Terminal 3 — run Playwright
-yarn workspace url-shortener-frontend test:e2e
-```
+**Caveats:** plain HTTP on ALB (add ACM + Route53 for prod); single task, no autoscaling; default VPC; tables retained on destroy.

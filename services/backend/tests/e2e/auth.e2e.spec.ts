@@ -99,13 +99,17 @@ describe('Auth (e2e)', () => {
       token = reg.body.token as string;
     });
 
-    it('200 returns the current user', async () => {
+    it('200 returns the current user without leaking the password hash', async () => {
       const res = await request(app.getHttpServer())
         .get('/auth/me')
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       expect(res.body.username).toBe('alice');
+      expect(res.body).not.toHaveProperty('password');
+      expect(Object.keys(res.body).sort()).toEqual(
+        ['createdAt', 'userId', 'username'].sort(),
+      );
     });
 
     it('401 without a token', () => {

@@ -7,6 +7,10 @@ services/*/dist/
 services/*/build/
 services/*/.build/
 
+# TypeScript incremental cache (disabled, but guard against regressions)
+*.tsbuildinfo
+services/*/*.tsbuildinfo
+
 # Environment
 .env
 services/*/.env

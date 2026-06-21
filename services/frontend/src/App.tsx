@@ -1,25 +1,47 @@
+import type { ReactNode } from 'react';
+import { Loader2 } from 'lucide-react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Header from '@/components/Header';
-import UrlShortenerForm from '@/components/UrlShortenerForm';
+import HomePage from '@/pages/HomePage';
+import LoginPage from '@/pages/LoginPage';
+import DashboardPage from '@/pages/DashboardPage';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
+
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-64px)] text-slate-500">
+        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+        Loading…
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Header />
-
-      <main>
-        <section className="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 py-24 px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4 tracking-tight leading-tight">
-              Shorten your links,{' '}
-              <span className="text-blue-400">amplify your reach</span>
-            </h1>
-            <p className="text-slate-400 text-lg sm:text-xl mb-12 max-w-xl mx-auto">
-              Transform long URLs into clean, shareable links in seconds.
-            </p>
-            <UrlShortenerForm />
-          </div>
-        </section>
-      </main>
-    </div>
+    <BrowserRouter>
+      <AuthProvider>
+        <div className="min-h-screen bg-slate-50">
+          <Header />
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/dashboard"
+              element={
+                <RequireAuth>
+                  <DashboardPage />
+                </RequireAuth>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
