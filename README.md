@@ -78,7 +78,9 @@ Passwords are stored as `salt:hash` where `salt` is 16 random bytes (hex) and `h
 ## Quick start (Docker)
 
 ```bash
-cp .env.example .env   # set JWT_SECRET
+cp .env.example .env
+# generate a JWT_SECRET and paste it into .env
+openssl rand -base64 32
 ```
 
 **Development** — hot reload, DynamoDB Local on port `8000`:
@@ -118,22 +120,10 @@ docker run -p 8000:8000 amazon/dynamodb-local -jar DynamoDBLocal.jar -sharedDb -
 ### 3. Create tables
 
 ```bash
-AWS="aws --endpoint-url http://localhost:8000 --region us-east-1 --no-cli-pager"
-AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local $AWS \
-  dynamodb create-table \
-  --table-name urls \
-  --attribute-definitions AttributeName=code,AttributeType=S AttributeName=userId,AttributeType=S \
-  --key-schema AttributeName=code,KeyType=HASH \
-  --global-secondary-indexes "IndexName=user-index,KeySchema=[{AttributeName=userId,KeyType=HASH}],Projection={ProjectionType=ALL}" \
-  --billing-mode PAY_PER_REQUEST
-
-AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local $AWS \
-  dynamodb create-table \
-  --table-name users \
-  --attribute-definitions AttributeName=userId,AttributeType=S AttributeName=username,AttributeType=S \
-  --key-schema AttributeName=userId,KeyType=HASH \
-  --global-secondary-indexes "IndexName=username-index,KeySchema=[{AttributeName=username,KeyType=HASH}],Projection={ProjectionType=ALL}" \
-  --billing-mode PAY_PER_REQUEST
+export AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local AWS_REGION=ap-southeast-1
+export URL_TABLE=urls URL_USER_INDEX=user-index
+export USER_TABLE=users USER_USERNAME_INDEX=username-index
+DYNAMODB_ENDPOINT=http://localhost:8000 ./scripts/init-dynamo.sh
 ```
 
 ### 4. Copy and fill environment files
@@ -159,7 +149,7 @@ yarn dev:frontend   # Vite dev server on :5173
 | `PORT` | `3000` | HTTP port |
 | `PUBLIC_BASE_URL` | `http://localhost:3000` | Base URL prepended to short codes |
 | `FRONTEND_URL` | `http://localhost:5173` | Used for CORS |
-| `AWS_REGION` | `us-east-1` | |
+| `AWS_REGION` | `ap-southeast-1` | |
 | `AWS_ENDPOINT` | `http://localhost:8000` | DynamoDB Local endpoint (omit in prod) |
 | `AWS_ACCESS_KEY_ID` | `local` | |
 | `AWS_SECRET_ACCESS_KEY` | `local` | |
@@ -227,7 +217,7 @@ yarn test:backend    # NestJS unit + integration
 yarn test:frontend   # Vitest unit + component
 ```
 
-### E2e — backend (no external services)
+### E2E — backend (no external services)
 
 The e2e suite uses an in-memory DynamoDB stub — no running database required.
 
@@ -235,7 +225,7 @@ The e2e suite uses an in-memory DynamoDB stub — no running database required.
 yarn test:backend:e2e
 ```
 
-### E2e — frontend (Playwright, requires the full stack)
+### E2E — frontend (Playwright, requires the full stack)
 
 Start DynamoDB Local and the backend first, then run Playwright:
 

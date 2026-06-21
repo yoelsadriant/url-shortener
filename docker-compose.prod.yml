@@ -6,19 +6,7 @@ services:
       dockerfile: services/backend/Dockerfile
       target: prod
     restart: unless-stopped
-    environment:
-      PORT: ${PORT}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
-      AWS_REGION: ${AWS_REGION}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      URL_TABLE: ${URL_TABLE}
-      URL_USER_INDEX: ${URL_USER_INDEX}
-      USER_TABLE: ${USER_TABLE}
-      USER_USERNAME_INDEX: ${USER_USERNAME_INDEX}
-      FRONTEND_URL: ${FRONTEND_URL}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+    env_file: .env
     ports:
       - "${PORT}:${PORT}"
 
