@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - id: target
         uses: ./.github/actions/resolve-target
@@ -27,7 +27,7 @@ jobs:
           repo_var: ${{ vars.CANARY_BASE_URL }}
 
       - if: steps.target.outputs.mode == 'local'
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4
         with:
           working_directory: services/backend
 
@@ -42,7 +42,7 @@ jobs:
             grafana/k6 run /tests/redirect-canary.js
 
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: canary-summary-${{ github.run_number }}
           path: summary.json
@@ -54,7 +54,7 @@ jobs:
           cp /tmp/backend.log backend.log 2>/dev/null || true
 
       - if: failure() && steps.target.outputs.mode == 'local'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: canary-server-logs
           path: |
