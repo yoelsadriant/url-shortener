@@ -4,15 +4,15 @@ URL-shortener API. NestJS + DynamoDB. JWT auth.
 
 ## Quick start
 
-Requires **[mise](https://mise.jdx.dev)**, **Docker**, and the **`aws` CLI**. The committed `mise.toml` pins Node 24 and auto-loads `.env`.
+Requires **Node 24** (pinned via `.nvmrc`), **Docker**, and the **`aws` CLI**.
 
 ```bash
-mise trust                       # one-time, approves mise.toml
-mise install                     # one-time, pulls Node 24
+nvm use                             # or `fnm use` — reads .nvmrc
 npm install
 cp .env.example .env
 docker compose -f compose.yml --profile dev up -d dynamodb-local
-./scripts/init-tables.sh         # idempotent
+set -a; . ./.env; set +a            # load env vars into the shell
+./scripts/init-tables.sh            # idempotent
 npm run start:dev
 ```
 

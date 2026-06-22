@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - id: target
         uses: ./.github/actions/resolve-target
@@ -34,9 +34,11 @@ jobs:
           repo_var: ${{ vars.LOAD_BASE_URL }}
 
       - if: steps.target.outputs.mode == 'local'
-        uses: jdx/mise-action@v2
+        uses: actions/setup-node@v5
         with:
-          working_directory: services/backend
+          node-version-file: services/backend/.nvmrc
+          cache: npm
+          cache-dependency-path: services/backend/package-lock.json
 
       - if: steps.target.outputs.mode == 'local'
         uses: ./.github/actions/start-local-stack
@@ -50,7 +52,7 @@ jobs:
             grafana/k6 run --summary-export=summary.json /tests/redirect-load.js
 
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: load-summary-${{ github.run_number }}
           path: summary.json
@@ -62,7 +64,7 @@ jobs:
           cp /tmp/backend.log backend.log 2>/dev/null || true
 
       - if: failure() && steps.target.outputs.mode == 'local'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: load-server-logs
           path: |

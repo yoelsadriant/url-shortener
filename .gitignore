@@ -17,9 +17,6 @@ services/*/.env
 services/*/.env.local
 services/*/.env.*.local
 
-# mise local override (per-machine settings)
-mise.local.toml
-services/*/mise.local.toml
 
 # Playwright
 services/*/test-results/
