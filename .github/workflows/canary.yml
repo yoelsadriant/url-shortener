@@ -1,0 +1,49 @@
+name: canary
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Override BASE_URL for a one-off probe'
+        required: false
+
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: resolve target URL
+        id: target
+        run: |
+          url="${{ github.event.inputs.base_url }}"
+          [ -z "$url" ] && url="${{ vars.CANARY_BASE_URL }}"
+          if [ -z "$url" ]; then
+            echo "::error::No target URL — set repository variable CANARY_BASE_URL or pass base_url on dispatch."
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: run k6 canary
+        run: |
+          docker run --rm -i \
+            -e BASE_URL='${{ steps.target.outputs.url }}' \
+            -v "$PWD/tests:/tests" \
+            -v "$PWD:/work" \
+            -w /work \
+            grafana/k6 run /tests/redirect-canary.js
+
+      - name: upload k6 summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-summary-${{ github.run_number }}
+          path: summary.json
+          retention-days: 7

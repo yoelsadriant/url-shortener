@@ -1,0 +1,52 @@
+name: load
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Target BASE_URL (defaults to repository variable LOAD_BASE_URL)'
+        required: false
+      seed_count:
+        description: 'Number of short URLs to seed before the ramp'
+        required: false
+        default: '50'
+
+concurrency:
+  group: load
+  cancel-in-progress: true
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: resolve target URL
+        id: target
+        run: |
+          url="${{ github.event.inputs.base_url }}"
+          [ -z "$url" ] && url="${{ vars.LOAD_BASE_URL }}"
+          if [ -z "$url" ]; then
+            echo "::error::No target URL — set repository variable LOAD_BASE_URL or pass base_url on dispatch."
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: run k6 load test
+        run: |
+          docker run --rm -i \
+            -e BASE_URL='${{ steps.target.outputs.url }}' \
+            -e SEED_COUNT='${{ github.event.inputs.seed_count }}' \
+            -v "$PWD/tests:/tests" \
+            -v "$PWD:/work" \
+            -w /work \
+            grafana/k6 run --summary-export=summary.json /tests/redirect-load.js
+
+      - name: upload k6 summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-summary-${{ github.run_number }}
+          path: summary.json
+          retention-days: 30

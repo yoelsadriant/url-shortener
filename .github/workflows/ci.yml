@@ -1,0 +1,106 @@
+name: ci
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: services/backend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+      - run: npm run test:e2e
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: services/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:run
+
+  e2e-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: services/frontend/package-lock.json
+      - name: install backend deps
+        working-directory: services/backend
+        run: npm ci
+      - name: install frontend deps + Playwright browsers
+        working-directory: services/frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: write backend .env from example
+        run: |
+          cp services/backend/.env.example services/backend/.env
+          echo "JWT_SECRET=$(openssl rand -base64 32)" >> services/backend/.env
+      - name: start backend stack
+        run: docker compose -f services/backend/compose.yml --profile dev up -d dynamodb-local dynamodb-init backend
+      - name: wait for backend
+        run: |
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:3000/health -o /dev/null && break || true
+            sleep 2
+          done
+      - name: run Playwright
+        working-directory: services/frontend
+        run: npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: services/frontend/playwright-report
+          retention-days: 7
+      - if: always()
+        run: docker compose -f services/backend/compose.yml --profile dev logs --no-color > docker-logs.txt || true
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-logs
+          path: docker-logs.txt
+          retention-days: 7
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: build backend prod image
+        uses: docker/build-push-action@v6
+        with:
+          context: services/backend
+          target: prod
+          push: false
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
