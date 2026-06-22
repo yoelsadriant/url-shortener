@@ -6,18 +6,17 @@ Production-style URL shortener monorepo. React frontend, NestJS API, DynamoDB.
 
 ## Quick Start
 
-Needs **Node ≥ 24**, **Docker**, and **make**.
+Requires **[mise](https://mise.jdx.dev)** (manages Node), **Docker**, and **make**. The committed `services/backend/mise.toml` pins Node 24 and auto-loads `.env`.
 
 ```bash
-make install        # once
+cd services/backend && mise trust && mise install && cd ../..
+make install        # once — backend + frontend deps
 make init           # .env + DynamoDB Local + tables
 make backend        # this shell
 make frontend       # another shell
 ```
 
 Open [http://localhost:5173](http://localhost:5173), sign up, shorten a link. `make` with no args lists every target.
-
-Optional: install [mise](https://mise.jdx.dev) and run `mise trust` in `services/backend/`. The committed `mise.toml` pins Node 24 and auto-loads `.env` whenever you `cd` there — no `set -a; . .env; set +a` ritual before raw `npm` commands.
 
 ## Services
 
