@@ -1,0 +1,9 @@
+# mise auto-loads this when you `cd` into services/backend (after `mise trust`).
+# It pins the Node version and sources .env so raw `npm` commands pick up the
+# backend's config without any shell ritual.
+
+[tools]
+node = "22"
+
+[env]
+_.file = ".env"

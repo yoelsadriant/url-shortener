@@ -15,9 +15,6 @@ export class EnvConfig {
   @IsUrl({ require_protocol: true, require_tld: false })
   PUBLIC_BASE_URL: string;
 
-  @IsUrl({ require_protocol: true, require_tld: false })
-  FRONTEND_URL: string;
-
   @IsString()
   AWS_REGION: string;
 

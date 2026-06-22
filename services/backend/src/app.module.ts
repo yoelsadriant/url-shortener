@@ -1,20 +1,14 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { HttpLoggerMiddleware } from './common/http-logger.middleware';
-import { HealthModule } from './health/health.module';
+import { HealthController } from './health/health.controller';
 import { UrlsModule } from './urls/urls.module';
 import { UsersModule } from './users/users.module';
-import { validateEnv } from './config/env.schema';
+import { ConfigModule } from './config/config.service';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({ validate: validateEnv }),
-    HealthModule,
-    AuthModule,
-    UrlsModule,
-    UsersModule,
-  ],
+  imports: [ConfigModule, AuthModule, UrlsModule, UsersModule],
+  controllers: [HealthController],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

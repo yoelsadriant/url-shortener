@@ -4,7 +4,7 @@ URL-shortener UI. React 18 + Vite + Tailwind + shadcn/ui + react-router.
 
 ## Quick start
 
-Requires **Node ≥ 20**. The backend should already be running on `http://localhost:3000` — see [../backend/README.md](../backend/README.md).
+Requires **Node ≥ 20**. Backend should be running at `http://localhost:3000` — see [../backend/README.md](../backend/README.md).
 
 ```bash
 npm install
@@ -17,36 +17,34 @@ Open [http://localhost:5173](http://localhost:5173).
 
 | Var | Default | Purpose |
 | --- | --- | --- |
-| `VITE_API_URL` | `http://localhost:3000` | Backend base URL — also used to build short links shown in the UI |
+| `VITE_API_URL` | `http://localhost:3000` | Backend base URL; also used to build the short links shown in the UI |
 
-Set it inline (`VITE_API_URL=... npm run dev`) or in a `.env.local`.
+Set inline (`VITE_API_URL=... npm run dev`) or in `.env.local`. Production builds bake it in:
+
+```bash
+VITE_API_URL=https://api.example.com npm run build
+```
+
+The CDK `UrlShortenerFrontend` stack uploads `dist/` to S3 + CloudFront — see [../../README.md#deploy-to-aws-cdk](../../README.md#deploy-to-aws-cdk).
 
 ## Scripts
 
 | Command | Effect |
 | --- | --- |
 | `npm run dev` | Vite dev server |
-| `npm run build` | Type-check + Vite production build to `dist/` |
+| `npm run build` | Type-check + production bundle to `dist/` |
 | `npm run preview` | Preview the built bundle |
-| `npm test` / `test:run` | Vitest watch / one-shot |
-| `npm run test:e2e` | Playwright e2e (needs running stack) |
+| `npm test` | Vitest (`-- --run` for CI / one-shot) |
+| `npm run test:e2e` | Playwright (needs running stack) |
 
 ## Layout
 
 ```
 src/
-  pages/      Top-level route components (HomePage, LoginPage, DashboardPage)
+  pages/      Route components (HomePage, LoginPage, DashboardPage)
   components/ Header, AuthForm, UrlList, ui/* (shadcn primitives)
-  context/    AuthContext (token + user, localStorage-persisted)
+  context/    AuthContext (token in localStorage)
   hooks/      useUrlShortener
   actions/    Fetch wrappers: shortenUrl, getMyUrls, deleteUrl, renameUrl, authActions
   types/      Shared types
 ```
-
-## Production build
-
-```bash
-VITE_API_URL=https://api.example.com npm run build
-```
-
-Outputs static assets to `dist/`. The CDK `UrlShortenerFrontend` stack uploads this folder to S3 and fronts it with CloudFront — see [../../README.md#deploy-to-aws-cdk](../../README.md#deploy-to-aws-cdk).

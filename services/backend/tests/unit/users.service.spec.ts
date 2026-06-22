@@ -24,8 +24,7 @@ describe('UsersService', () => {
           provide: ConfigService,
           useValue: {
             ddb: { send: ddbSend },
-            userTable: 'users',
-            userUsernameIndex: 'username-index',
+            env: { USER_TABLE: 'users', USER_USERNAME_INDEX: 'username-index' },
           },
         },
       ],

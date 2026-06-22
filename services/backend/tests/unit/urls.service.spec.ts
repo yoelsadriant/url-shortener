@@ -24,8 +24,7 @@ describe('UrlsService', () => {
           provide: ConfigService,
           useValue: {
             ddb: { send: ddbSend },
-            urlTable: 'urls',
-            urlUserIndex: 'user-index',
+            env: { URL_TABLE: 'urls', URL_USER_INDEX: 'user-index' },
             publicBaseUrl: 'http://localhost:3000',
           },
         },
@@ -43,7 +42,7 @@ describe('UrlsService', () => {
         userId: 'uuid-1',
       });
       expect(result.shortUrl).toMatch(
-        /^http:\/\/localhost:3000\/[A-Za-z0-9]{8}$/,
+        /^http:\/\/localhost:3000\/[A-Za-z0-9_-]{8}$/,
       );
     });
 

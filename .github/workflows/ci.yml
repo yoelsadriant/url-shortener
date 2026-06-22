@@ -17,15 +17,25 @@ jobs:
         working-directory: services/backend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: install Node via mise (uses services/backend/mise.toml)
+        uses: jdx/mise-action@v2
         with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: services/backend/package-lock.json
+          working_directory: services/backend
+      - name: seed .env so mise can auto-load it
+        run: cp .env.example .env
+      - uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('services/backend/package-lock.json') }}
+          restore-keys: npm-${{ runner.os }}-
       - run: npm ci
       - run: npm run lint
       - run: npm run build
       - run: npm test
+      - name: start DynamoDB Local + seed tables
+        run: |
+          docker compose -f compose.yml --profile dev up -d dynamodb-local
+          ./scripts/init-tables.sh
       - run: npm run test:e2e
 
   frontend:
@@ -62,39 +72,12 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: services/frontend/package-lock.json
-      - name: install backend deps
-        working-directory: services/backend
-        run: npm ci
       - name: install frontend deps + Playwright browsers
         working-directory: services/frontend
         run: |
           npm ci
           npx playwright install --with-deps chromium
-      - name: write backend .env from example
-        run: |
-          cp services/backend/.env.example services/backend/.env
-          echo "JWT_SECRET=$(openssl rand -base64 32)" >> services/backend/.env
-      - name: start DynamoDB Local
-        run: docker compose -f services/backend/compose.yml --profile dev up -d dynamodb-local
-      - name: seed DDB tables
-        run: |
-          set -a; . ./services/backend/.env; set +a
-          ./services/backend/scripts/init-tables.sh
-      - name: build and start backend
-        working-directory: services/backend
-        run: |
-          set -a; . ./.env; set +a
-          npm run build
-          nohup npm run start:prod > /tmp/backend.log 2>&1 &
-      - name: wait for backend
-        run: |
-          for i in $(seq 1 60); do
-            curl -fsS http://localhost:3000/health -o /dev/null && exit 0
-            sleep 2
-          done
-          echo "backend never became ready" >&2
-          tail -50 /tmp/backend.log || true
-          exit 1
+      - uses: ./.github/actions/start-local-stack
       - name: run Playwright
         working-directory: services/frontend
         run: npm run test:e2e
@@ -116,6 +99,27 @@ jobs:
             docker-logs.txt
             backend.log
           retention-days: 7
+
+  infra:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: infra/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - name: stub frontend dist so synth succeeds
+        run: |
+          mkdir -p ../services/frontend/dist
+          echo '<!doctype html>' > ../services/frontend/dist/index.html
+      - run: npm run synth -- --quiet
 
   docker-build:
     runs-on: ubuntu-latest

@@ -3,17 +3,25 @@ import { check, fail } from 'k6';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 const TARGET_URL = __ENV.TARGET_URL || 'https://example.com/canary';
+const IS_LOCAL = /^https?:\/\/(localhost|127\.|host\.docker)/.test(BASE_URL);
 
 export const options = {
   vus: 1,
   iterations: 1,
-  thresholds: {
-    checks: ['rate==1.0'],
-    http_req_failed: ['rate==0'],
-    'http_req_duration{name:register}': ['p(95)<2000'],
-    'http_req_duration{name:create}':   ['p(95)<2000'],
-    'http_req_duration{name:redirect}': ['p(95)<500'],
-  },
+  // Local-mode runs only assert correctness (all checks pass, no errors);
+  // latency thresholds are calibrated for real Fargate + DynamoDB.
+  thresholds: IS_LOCAL
+    ? {
+        checks: ['rate==1.0'],
+        http_req_failed: ['rate==0'],
+      }
+    : {
+        checks: ['rate==1.0'],
+        http_req_failed: ['rate==0'],
+        'http_req_duration{name:register}': ['p(95)<2000'],
+        'http_req_duration{name:create}':   ['p(95)<2000'],
+        'http_req_duration{name:redirect}': ['p(95)<500'],
+      },
 };
 
 function jsonHeaders() {

@@ -20,55 +20,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: resolve target URL
-        id: target
-        run: |
-          url="${{ github.event.inputs.base_url }}"
-          [ -z "$url" ] && url="${{ vars.CANARY_BASE_URL }}"
-          if [ -z "$url" ]; then
-            echo "mode=local" >> "$GITHUB_OUTPUT"
-            echo "url=http://localhost:3000" >> "$GITHUB_OUTPUT"
-          else
-            echo "mode=external" >> "$GITHUB_OUTPUT"
-            echo "url=$url" >> "$GITHUB_OUTPUT"
-          fi
-
-      - uses: actions/setup-node@v4
-        if: steps.target.outputs.mode == 'local'
+      - id: target
+        uses: ./.github/actions/resolve-target
         with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: services/backend/package-lock.json
+          dispatch_input: ${{ github.event.inputs.base_url }}
+          repo_var: ${{ vars.CANARY_BASE_URL }}
 
-      - name: start local backend stack
-        if: steps.target.outputs.mode == 'local'
-        run: |
-          cp services/backend/.env.example services/backend/.env
-          echo "JWT_SECRET=$(openssl rand -base64 32)" >> services/backend/.env
-          docker compose -f services/backend/compose.yml --profile dev up -d dynamodb-local
-          set -a; . ./services/backend/.env; set +a
-          ./services/backend/scripts/init-tables.sh
-          (cd services/backend && npm ci && npm run build && nohup npm run start:prod > /tmp/backend.log 2>&1 &)
-          for i in $(seq 1 60); do
-            curl -fsS http://localhost:3000/health -o /dev/null && exit 0
-            sleep 2
-          done
-          echo "backend never became ready" >&2
-          tail -50 /tmp/backend.log || true
-          exit 1
+      - if: steps.target.outputs.mode == 'local'
+        uses: jdx/mise-action@v2
+        with:
+          working_directory: services/backend
+
+      - if: steps.target.outputs.mode == 'local'
+        uses: ./.github/actions/start-local-stack
 
       - name: run k6 canary
         run: |
-          docker run --rm -i \
-            --network host \
+          docker run --rm -i --network host \
             -e BASE_URL='${{ steps.target.outputs.url }}' \
-            -v "$PWD/tests:/tests" \
-            -v "$PWD:/work" \
-            -w /work \
+            -v "$PWD/tests:/tests" -v "$PWD:/work" -w /work \
             grafana/k6 run /tests/redirect-canary.js
 
-      - name: upload k6 summary
-        if: always()
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: canary-summary-${{ github.run_number }}

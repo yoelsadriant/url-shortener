@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
-import { Vpc } from 'aws-cdk-lib/aws-ec2';
+import { IVpc, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 import {
   Cluster,
@@ -17,6 +17,8 @@ import { Construct } from 'constructs';
 interface BackendStackProps extends StackProps {
   urlsTable: Table;
   usersTable: Table;
+  // Optional — injected by tests to skip the AWS lookup. Defaults to the account's default VPC.
+  vpc?: IVpc;
 }
 
 export class BackendStack extends Stack {
@@ -25,7 +27,7 @@ export class BackendStack extends Stack {
   constructor(scope: Construct, id: string, props: BackendStackProps) {
     super(scope, id, props);
 
-    const vpc = Vpc.fromLookup(this, 'Vpc', { isDefault: true });
+    const vpc = props.vpc ?? Vpc.fromLookup(this, 'Vpc', { isDefault: true });
 
     const cluster = new Cluster(this, 'Cluster', { vpc });
 
@@ -64,7 +66,6 @@ export class BackendStack extends Stack {
           USER_TABLE: props.usersTable.tableName,
           USER_USERNAME_INDEX: 'username-index',
           JWT_EXPIRES_IN: '7d',
-          FRONTEND_URL: process.env.FRONTEND_URL ?? '*',
           PUBLIC_BASE_URL: process.env.PUBLIC_BASE_URL ?? '',
         },
         secrets: {

@@ -11,7 +11,7 @@ export class UsersService {
   async getById(userId: string): Promise<User> {
     const { Item } = await this.config.ddb.send(
       new GetCommand({
-        TableName: this.config.userTable,
+        TableName: this.config.env.USER_TABLE,
         Key: { userId },
       }),
     );
@@ -22,8 +22,8 @@ export class UsersService {
   async findByUsername(username: string): Promise<User | null> {
     const { Items } = await this.config.ddb.send(
       new QueryCommand({
-        TableName: this.config.userTable,
-        IndexName: this.config.userUsernameIndex,
+        TableName: this.config.env.USER_TABLE,
+        IndexName: this.config.env.USER_USERNAME_INDEX,
         KeyConditionExpression: 'username = :username',
         ExpressionAttributeValues: { ':username': username },
         Limit: 1,
@@ -41,7 +41,7 @@ export class UsersService {
     };
     await this.config.ddb.send(
       new PutCommand({
-        TableName: this.config.userTable,
+        TableName: this.config.env.USER_TABLE,
         Item: user,
       }),
     );
