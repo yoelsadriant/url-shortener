@@ -1,14 +1,10 @@
-services:
-  # DynamoDB Local — POC only. Data is in-memory; restart wipes it.
-  - type: pserv
-    name: dynamodb-local
-    runtime: image
-    plan: free
-    region: singapore
-    image:
-      url: docker.io/amazon/dynamodb-local:latest
-    dockerCommand: -jar DynamoDBLocal.jar -sharedDb -inMemory
+# Render.com POC deploy — free tier, no AWS, no Blueprint, no paid services.
+# The backend image bundles DynamoDB Local in the same container (see
+# the `render-poc` target in services/backend/Dockerfile).
+# Set this up via the Render UI (Web Service + Static Site), or use the
+# values below as a reference. Data is in-memory and wipes on restart.
 
+services:
   - type: web
     name: url-shortener-backend
     runtime: docker
@@ -17,9 +13,8 @@ services:
     rootDir: services/backend
     dockerfilePath: ./Dockerfile
     dockerContext: .
+    dockerfileTarget: render-poc      # bundles DDB Local in the same image
     healthCheckPath: /health
-    # Seed the in-memory DDB on every cold start, then start Nest.
-    dockerCommand: sh -c "node scripts/init-tables.mjs && node dist/main.js"
     envVars:
       - key: PORT
         value: 3000
@@ -30,9 +25,6 @@ services:
           property: host
       - key: AWS_REGION
         value: ap-southeast-1
-      - key: AWS_ENDPOINT
-        # Render's internal DNS: <service-name>:<port>
-        value: http://dynamodb-local:8000
       - key: AWS_ACCESS_KEY_ID
         value: local
       - key: AWS_SECRET_ACCESS_KEY
