@@ -19,12 +19,12 @@ jobs:
         working-directory: services/backend
     steps:
       - uses: actions/checkout@v4
+      - name: seed .env so mise can auto-load it
+        run: cp .env.example .env
       - name: install Node via mise (uses services/backend/mise.toml)
         uses: jdx/mise-action@v2
         with:
           working_directory: services/backend
-      - name: seed .env so mise can auto-load it
-        run: cp .env.example .env
       - uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -117,7 +117,10 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
-      - name: stub frontend dist so synth succeeds
+      # `cdk synth` needs the real built frontend (bin/app.ts uploads dist/ via
+      # BucketDeployment). A one-file stub keeps CI honest without running the
+      # full frontend build.
+      - name: stub frontend dist for synth
         run: |
           mkdir -p ../services/frontend/dist
           echo '<!doctype html>' > ../services/frontend/dist/index.html

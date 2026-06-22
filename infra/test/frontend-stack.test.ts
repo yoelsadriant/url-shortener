@@ -1,17 +1,6 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { App } from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
 import { FrontendStack } from '../lib/frontend-stack';
-
-// FrontendStack refuses to synth without a built frontend; create a stub.
-const distPath = path.join(__dirname, '..', '..', 'services', 'frontend', 'dist');
-beforeAll(() => {
-  if (!fs.existsSync(distPath)) {
-    fs.mkdirSync(distPath, { recursive: true });
-    fs.writeFileSync(path.join(distPath, 'index.html'), '<!doctype html><title>stub</title>');
-  }
-});
 
 describe('FrontendStack', () => {
   const template = Template.fromStack(new FrontendStack(new App(), 'TestFrontend'));
