@@ -25,7 +25,7 @@ Set inline (`VITE_API_URL=... npm run dev`) or in `.env.local`. Production build
 VITE_API_URL=https://api.example.com npm run build
 ```
 
-The CDK `UrlShortenerFrontend` stack uploads `dist/` to S3 + CloudFront — see [../../README.md#deploy-to-aws-cdk](../../README.md#deploy-to-aws-cdk).
+Output goes to `dist/`. Deploy it wherever you host static SPAs (S3 + CloudFront, Netlify, Vercel, etc.).
 
 ## Scripts
 

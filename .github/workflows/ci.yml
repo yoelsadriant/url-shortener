@@ -106,36 +106,6 @@ jobs:
             backend.log
           retention-days: 7
 
-  infra:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: infra
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: infra/package-lock.json
-      - run: npm ci
-      - run: npm run build
-      - run: npm test
-      # `cdk synth` needs the real built frontend (bin/app.ts uploads dist/ via
-      # BucketDeployment). A one-file stub keeps CI honest without running the
-      # full frontend build.
-      - name: stub frontend dist for synth
-        run: |
-          mkdir -p ../services/frontend/dist
-          echo '<!doctype html>' > ../services/frontend/dist/index.html
-      # Account/region must match the keys cached in infra/cdk.context.json
-      # so the VPC lookup resolves offline (no AWS creds needed).
-      - name: cdk synth
-        env:
-          CDK_DEFAULT_ACCOUNT: '206716568600'
-          CDK_DEFAULT_REGION: ap-southeast-1
-        run: npm run synth -- --quiet
-
   docker-build:
     runs-on: ubuntu-latest
     steps:

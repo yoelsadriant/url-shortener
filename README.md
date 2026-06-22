@@ -1,6 +1,6 @@
 # URL Shortener
 
-**Jump to:** [Quick Start](#quick-start) · [Services](#services) · [Architecture](#architecture) · [Design choices](#design-choices) · [API](#api) · [Schema](#schema) · [Testing](#testing) · [Deploy](#deploy-to-aws-cdk)
+**Jump to:** [Quick Start](#quick-start) · [Services](#services) · [Architecture](#architecture) · [Design choices](#design-choices) · [API](#api) · [Schema](#schema) · [Testing](#testing) · [Deploy plan](#deploy-plan-aws)
 
 Production-style URL shortener monorepo. React frontend, NestJS API, DynamoDB.
 
@@ -25,7 +25,6 @@ Optional: install [mise](https://mise.jdx.dev) and run `mise trust` in `services
 | --- | --- | --- |
 | [`services/backend`](services/backend) | NestJS API + DynamoDB access | [README](services/backend/README.md) |
 | [`services/frontend`](services/frontend) | React + Vite UI | [README](services/frontend/README.md) |
-| [`infra`](infra) | AWS CDK stacks (Fargate, S3+CloudFront, DDB) | [Deploy](#deploy-to-aws-cdk) |
 | [`tests`](tests) | k6 load + canary | [Testing](#testing) |
 
 ## Architecture
@@ -46,13 +45,10 @@ graph TD
 
 - **React + shadcn/ui** — chosen for simplicity; no Figma design step.
 - **NestJS over Express** — DI + opinionated module layout keeps team code consistent; Express lets every contributor invent their own structure.
-- **Fargate over Lambda** — bursty traffic with idle gaps would hit Lambda cold starts (even with a lambdalith). Fargate stays warm.
 - **DynamoDB over Postgres/Mongo + Redis** — single-digit-ms reads, no idle cost, scales without re-sharding. Add DAX if a viral link hot-partitions.
 - **Conditional writes, not locks** — code collisions handled with `attribute_not_exists(code)`; rename is a single `TransactWriteItems` (put new + delete old). No app-level locking, no read-modify-write races.
 - **JWT in localStorage** — stateless tokens over server sessions/cookies. Trades CSRF immunity for XSS exposure; acceptable here, would revisit for a production SaaS (`HttpOnly` cookies + CSRF tokens).
 - **Local auth over OAuth** — OAuth needs provider app registration (Google etc.), out of scope and belongs in its own service.
-- **S3 + CloudFront** — Vite runs natively on the host in dev, prod ships to S3 + CloudFront via CDK (see [Deploy](#deploy-to-aws-cdk)). Redirect requests still hit the backend, which keeps the door open for analytics.
-- **Analytics (future)** — clickstream goes to Kinesis Firehose → Parquet in S3 → Athena, not through the app service.
 
 ## API
 
@@ -89,26 +85,28 @@ Validation: `username` 3–20 `[a-zA-Z0-9_]`, `password` 8–64, `customUrl` 1�
 
 Both k6 scripts honour `BASE_URL` and `SEED_COUNT` env overrides.
 
-## Deploy to AWS (CDK)
+## Deploy plan (AWS)
 
-Three stacks in [`infra/`](infra/):
+> The CDK implementation isn't in this repo yet — the section below captures the intended topology and a cost estimate so it can be re-added when ready.
 
-| Stack                  | What it creates |
-| ---------------------- | --------------- |
+Three stacks:
+
+| Stack                  | What it would create |
+| ---------------------- | -------------------- |
 | `UrlShortenerData`     | DynamoDB tables (PAY_PER_REQUEST, PITR, `RETAIN`). |
-| `UrlShortenerBackend`  | Fargate (0.25 vCPU / 0.5 GB) + ALB in default VPC. JWT in Secrets Manager. IAM least-privilege. |
+| `UrlShortenerBackend`  | Fargate (0.25 vCPU / 0.5 GB) + ALB in default VPC. JWT in Secrets Manager. IAM least-privilege (Get/Put/Delete/Query on the two tables only). |
 | `UrlShortenerFrontend` | Private S3 + CloudFront (OAC, SPA fallback). Uploads `services/frontend/dist/`. |
+
+Rough deploy flow (once the stacks exist):
 
 ```bash
 cd infra && npm install
 npx cdk bootstrap aws://<ACCOUNT_ID>/ap-southeast-1   # once per account/region
-npx cdk deploy UrlShortenerData UrlShortenerBackend   # ~10 min, outputs BackendUrl
+npx cdk deploy UrlShortenerData UrlShortenerBackend   # outputs BackendUrl
 
 VITE_API_URL=http://<BackendUrl> npm --prefix ../services/frontend run build
 npx cdk deploy UrlShortenerFrontend
 ```
-
-Redeploy backend: `cdk deploy UrlShortenerBackend`. Tear down: `cdk destroy UrlShortenerFrontend UrlShortenerBackend` (tables are `RETAIN`ed).
 
 **Cost (Singapore, idle):**
 
