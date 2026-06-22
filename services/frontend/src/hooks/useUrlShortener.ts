@@ -9,7 +9,7 @@ interface State {
 }
 
 export interface UseUrlShortenerReturn extends State {
-  shorten: (url: string) => Promise<void>;
+  shorten: (url: string, customUrl?: string) => Promise<void>;
 }
 
 const initialState: State = { result: null, isLoading: false, error: null };
@@ -18,7 +18,7 @@ export function useUrlShortener(userId: string | null): UseUrlShortenerReturn {
   const [state, setState] = useState<State>(initialState);
 
   const shorten = useCallback(
-    async (url: string) => {
+    async (url: string, customUrl?: string) => {
       if (!userId) {
         setState({
           result: null,
@@ -29,7 +29,7 @@ export function useUrlShortener(userId: string | null): UseUrlShortenerReturn {
       }
       setState({ result: null, isLoading: true, error: null });
       try {
-        const result = await shortenUrl(url, userId);
+        const result = await shortenUrl(url, userId, customUrl);
         setState({ result, isLoading: false, error: null });
       } catch (err) {
         const message =

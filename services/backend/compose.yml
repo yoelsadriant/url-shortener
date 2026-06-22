@@ -8,35 +8,6 @@ services:
     ports:
       - "8000:8000"
 
-  dynamodb-init:
-    profiles: [dev]
-    image: amazon/aws-cli:latest
-    depends_on:
-      - dynamodb-local
-    env_file: .env
-    entrypoint: ["/bin/sh", "/init-dynamo.sh"]
-    volumes:
-      - ./scripts/init-dynamo.sh:/init-dynamo.sh:ro
-
-  backend:
-    profiles: [dev]
-    build:
-      context: .
-      target: dev
-    depends_on:
-      dynamodb-init:
-        condition: service_completed_successfully
-    env_file: .env
-    environment:
-      AWS_ENDPOINT: http://dynamodb-local:8000
-    ports:
-      - "${PORT}:${PORT}"
-    volumes:
-      - ./src:/app/src
-      - ./nest-cli.json:/app/nest-cli.json
-      - ./tsconfig.json:/app/tsconfig.json
-      - ./tsconfig.build.json:/app/tsconfig.build.json
-
   backend-prod:
     profiles: [prod]
     build:

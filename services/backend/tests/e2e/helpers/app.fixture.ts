@@ -1,11 +1,27 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
+import {
+  ConditionalCheckFailedException,
+  TransactionCanceledException,
+} from '@aws-sdk/client-dynamodb';
 import type { App } from 'supertest/types';
 import { AppModule } from '@/app.module';
 import { ConfigService } from '@/config/config.service';
 
 type Row = Record<string, unknown>;
+
+function evaluateCondition(
+  cond: string | undefined,
+  existing: Row | undefined,
+  exprVals: Record<string, unknown>,
+): boolean {
+  if (!cond) return true;
+  const trimmed = cond.trim();
+  if (trimmed.startsWith('attribute_not_exists')) return existing === undefined;
+  if (trimmed.startsWith('attribute_exists')) return existing !== undefined;
+  const [lhs, rhs] = trimmed.split('=').map((s) => s.trim());
+  return existing !== undefined && existing[lhs] === exprVals[rhs];
+}
 
 export class InMemoryDdb {
   private tables: Record<string, Record<string, Row>> = {};
@@ -63,26 +79,69 @@ export class InMemoryDdb {
         const keyVal = Object.values(input['Key'] as Record<string, string>)[0];
         const existing = t[keyVal];
         const cond = input['ConditionExpression'] as string | undefined;
-        // Support a single equality condition like `userId = :uid`.
-        if (cond) {
-          const exprVals = (input['ExpressionAttributeValues'] ?? {}) as Record<
-            string,
-            unknown
-          >;
-          const [lhs, rhs] = cond.split('=').map((s) => s.trim());
-          const expected = exprVals[rhs];
-          if (!existing || existing[lhs] !== expected) {
-            return Promise.reject(
-              new ConditionalCheckFailedException({
-                message: 'condition not met',
-                $metadata: {},
-              }),
-            );
-          }
-        } else if (!existing) {
-          return Promise.resolve({});
+        const exprVals = (input['ExpressionAttributeValues'] ?? {}) as Record<
+          string,
+          unknown
+        >;
+        if (!evaluateCondition(cond, existing, exprVals)) {
+          return Promise.reject(
+            new ConditionalCheckFailedException({
+              message: 'condition not met',
+              $metadata: {},
+            }),
+          );
         }
         delete t[keyVal];
+        return Promise.resolve({});
+      }
+      case 'TransactWriteCommand': {
+        const items = (input['TransactItems'] ?? []) as Array<
+          Record<string, Record<string, unknown>>
+        >;
+        const planned: Array<() => void> = [];
+        for (const op of items) {
+          if (op.Put) {
+            const table = this.t(op.Put['TableName'] as string);
+            const item = op.Put['Item'] as Row;
+            const pkVal = Object.values(item as Record<string, string>)[0];
+            const cond = op.Put['ConditionExpression'] as string | undefined;
+            const exprVals = (op.Put['ExpressionAttributeValues'] ??
+              {}) as Record<string, unknown>;
+            if (!evaluateCondition(cond, table[pkVal], exprVals)) {
+              return Promise.reject(
+                new TransactionCanceledException({
+                  message: 'transaction canceled',
+                  $metadata: {},
+                  CancellationReasons: [{ Code: 'ConditionalCheckFailed' }],
+                }),
+              );
+            }
+            planned.push(() => {
+              table[pkVal] = item;
+            });
+          } else if (op.Delete) {
+            const table = this.t(op.Delete['TableName'] as string);
+            const keyVal = Object.values(
+              op.Delete['Key'] as Record<string, string>,
+            )[0];
+            const cond = op.Delete['ConditionExpression'] as string | undefined;
+            const exprVals = (op.Delete['ExpressionAttributeValues'] ??
+              {}) as Record<string, unknown>;
+            if (!evaluateCondition(cond, table[keyVal], exprVals)) {
+              return Promise.reject(
+                new TransactionCanceledException({
+                  message: 'transaction canceled',
+                  $metadata: {},
+                  CancellationReasons: [{ Code: 'ConditionalCheckFailed' }],
+                }),
+              );
+            }
+            planned.push(() => {
+              delete table[keyVal];
+            });
+          }
+        }
+        for (const apply of planned) apply();
         return Promise.resolve({});
       }
       default:

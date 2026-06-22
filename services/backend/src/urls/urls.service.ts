@@ -85,8 +85,14 @@ export class UrlsService {
     return (Items ?? []) as Url[];
   }
 
-  async renameCode(code: string, newCode: string) {
+  async renameCode(code: string, newCode: string, userId: string) {
     const item = await this.getByCode(code);
+    if (item.userId !== userId) {
+      throw new NotFoundException(`Code "${code}" not found`);
+    }
+    if (newCode === code) {
+      return { shortUrl: `${this.config.publicBaseUrl}/${code}` };
+    }
     try {
       await this.config.ddb.send(
         new TransactWriteCommand({
@@ -105,7 +111,8 @@ export class UrlsService {
               Delete: {
                 TableName: this.config.urlTable,
                 Key: { code },
-                ConditionExpression: 'attribute_exists(code)',
+                ConditionExpression: 'userId = :id',
+                ExpressionAttributeValues: { ':id': userId },
               },
             },
           ],
@@ -117,9 +124,7 @@ export class UrlsService {
       };
     } catch (e) {
       if (e instanceof TransactionCanceledException) {
-        throw new ConflictException(
-          `Transaction cancel "${code}" update to "${newCode}" failed`,
-        );
+        throw new ConflictException(`Code "${newCode}" is already taken`);
       }
       throw e;
     }

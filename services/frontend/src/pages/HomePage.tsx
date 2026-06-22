@@ -7,6 +7,8 @@ import {
   Link2,
   Loader2,
   Sparkles,
+  Wand2,
+  X,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -15,43 +17,59 @@ import { useAuth } from '@/context/AuthContext';
 import { useUrlShortener } from '@/hooks/useUrlShortener';
 
 const PENDING_URL_KEY = 'shortener.pendingUrl';
+const PENDING_CUSTOM_KEY = 'shortener.pendingCustom';
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+const API_HOST = API_URL.replace(/^https?:\/\//, '');
 
 export default function HomePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [url, setUrl] = useState('');
+  const [customUrl, setCustomUrl] = useState('');
+  const [showCustom, setShowCustom] = useState(false);
   const { shorten, result, isLoading, error } = useUrlShortener(
     user?.userId ?? null,
   );
   const consumedPendingRef = useRef(false);
 
-  // After a successful login, finish the shorten the user came here for.
   useEffect(() => {
     if (consumedPendingRef.current || !user) return;
     const pending = sessionStorage.getItem(PENDING_URL_KEY);
     if (!pending) return;
     consumedPendingRef.current = true;
+    const pendingCustom = sessionStorage.getItem(PENDING_CUSTOM_KEY) ?? '';
     sessionStorage.removeItem(PENDING_URL_KEY);
+    sessionStorage.removeItem(PENDING_CUSTOM_KEY);
     setUrl(pending);
-    void shorten(pending).then(() => setUrl(''));
+    if (pendingCustom) {
+      setCustomUrl(pendingCustom);
+      setShowCustom(true);
+    }
+    void shorten(pending, pendingCustom || undefined).then(() => {
+      setUrl('');
+      setCustomUrl('');
+    });
   }, [user, shorten]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = url.trim();
+    const trimmedCustom = customUrl.trim();
     if (!trimmed) return;
     if (!user) {
       sessionStorage.setItem(PENDING_URL_KEY, trimmed);
+      if (trimmedCustom) sessionStorage.setItem(PENDING_CUSTOM_KEY, trimmedCustom);
       navigate('/login');
       return;
     }
-    await shorten(trimmed);
+    await shorten(trimmed, trimmedCustom || undefined);
     setUrl('');
+    setCustomUrl('');
   };
 
   return (
     <main className="relative">
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-4 pt-20 pb-24 sm:pt-28 sm:pb-32">
+      <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-4 pt-16 pb-16 sm:pt-20 sm:pb-20">
         <BackgroundGlow />
 
         <div className="relative max-w-4xl mx-auto text-center">
@@ -103,6 +121,61 @@ export default function HomePage() {
                 )}
               </Button>
             </div>
+
+            <div className="mt-3 flex justify-center">
+              {showCustom ? (
+                <div className="w-full max-w-xl bg-white/5 rounded-xl p-3 ring-1 ring-white/10 backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <label
+                      htmlFor="custom-alias"
+                      className="text-xs font-medium text-blue-200 inline-flex items-center gap-1.5"
+                    >
+                      <Wand2 className="h-3 w-3" />
+                      Custom alias
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCustom(false);
+                        setCustomUrl('');
+                      }}
+                      className="text-slate-400 hover:text-slate-200"
+                      aria-label="Hide custom alias"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 bg-white/95 rounded-lg pl-3 pr-1 py-1">
+                    <span className="text-slate-500 text-sm shrink-0">
+                      {API_HOST}/
+                    </span>
+                    <Input
+                      id="custom-alias"
+                      value={customUrl}
+                      onChange={(e) => setCustomUrl(e.target.value)}
+                      placeholder="my-link"
+                      pattern="[A-Za-z0-9_-]+"
+                      maxLength={32}
+                      className="h-9 bg-transparent border-0 text-slate-900 placeholder:text-slate-400 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                      aria-label="Custom alias"
+                    />
+                  </div>
+                  <p className="text-slate-400 text-xs mt-2">
+                    Leave blank for a random code. Letters, digits, dashes, underscores.
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowCustom(true)}
+                  className="text-blue-200 hover:text-blue-100 text-sm font-medium inline-flex items-center gap-1.5"
+                >
+                  <Wand2 className="h-3.5 w-3.5" />
+                  Use a custom alias
+                </button>
+              )}
+            </div>
+
             {!user && (
               <p className="text-slate-400 text-sm mt-3">
                 You'll be asked to sign in before we save it.

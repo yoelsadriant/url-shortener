@@ -165,6 +165,7 @@ describe('URLs (e2e)', () => {
 
   describe('PUT /url/:code/rename', () => {
     const owner = 'a1b2c3d4-e5f6-4a7b-8c9d-0000000000aa';
+    const other = 'a1b2c3d4-e5f6-4a7b-8c9d-0000000000bb';
     const newCode = 'newUpdatedCode';
 
     beforeEach(async () => {
@@ -175,12 +176,59 @@ describe('URLs (e2e)', () => {
       });
     });
 
-    it('200 when the update success', async () => {
+    it('200 when the owner renames their own code', async () => {
       const res = await request(app.getHttpServer())
-        .put(`/url/updateMe123/rename`)
+        .put(`/url/updateMe123/rename?user=${owner}`)
         .send({ newCode })
         .expect(200);
       expect(res.body.shortUrl).toBe(`http://localhost:3000/${newCode}`);
+
+      await request(app.getHttpServer()).get('/updateMe123').expect(404);
+      await request(app.getHttpServer())
+        .get(`/${newCode}`)
+        .expect(302)
+        .expect('Location', 'https://example.com');
+    });
+
+    it('404 when another user tries to rename', async () => {
+      await request(app.getHttpServer())
+        .put(`/url/updateMe123/rename?user=${other}`)
+        .send({ newCode })
+        .expect(404);
+    });
+
+    it('404 for a non-existent code', () => {
+      return request(app.getHttpServer())
+        .put(`/url/Unknown1/rename?user=${owner}`)
+        .send({ newCode })
+        .expect(404);
+    });
+
+    it('409 when the new code is already taken', async () => {
+      await request(app.getHttpServer()).post('/url').send({
+        url: 'https://other.example',
+        userId: owner,
+        customUrl: 'takenCode',
+      });
+
+      await request(app.getHttpServer())
+        .put(`/url/updateMe123/rename?user=${owner}`)
+        .send({ newCode: 'takenCode' })
+        .expect(409);
+    });
+
+    it('400 when the new code has invalid characters', () => {
+      return request(app.getHttpServer())
+        .put(`/url/updateMe123/rename?user=${owner}`)
+        .send({ newCode: 'has spaces!' })
+        .expect(400);
+    });
+
+    it('400 when the user query is not a valid UUID', () => {
+      return request(app.getHttpServer())
+        .put('/url/updateMe123/rename?user=not-a-uuid')
+        .send({ newCode })
+        .expect(400);
     });
   });
 });

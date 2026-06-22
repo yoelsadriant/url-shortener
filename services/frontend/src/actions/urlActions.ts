@@ -12,11 +12,15 @@ async function parseError(res: Response): Promise<string> {
 export async function shortenUrl(
   url: string,
   userId: string,
+  customUrl?: string,
 ): Promise<ShortenResult> {
+  const body: Record<string, string> = { url, userId };
+  if (customUrl?.trim()) body.customUrl = customUrl.trim();
+
   const response = await fetch(`${API_URL}/url`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, userId }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) throw new Error(await parseError(response));
@@ -29,4 +33,29 @@ export async function getMyUrls(userId: string): Promise<UrlRecord[]> {
   );
   if (!response.ok) throw new Error(await parseError(response));
   return response.json() as Promise<UrlRecord[]>;
+}
+
+export async function deleteUrl(code: string, userId: string): Promise<void> {
+  const response = await fetch(
+    `${API_URL}/url/${encodeURIComponent(code)}?user=${encodeURIComponent(userId)}`,
+    { method: 'DELETE' },
+  );
+  if (!response.ok) throw new Error(await parseError(response));
+}
+
+export async function renameUrl(
+  code: string,
+  newCode: string,
+  userId: string,
+): Promise<ShortenResult> {
+  const response = await fetch(
+    `${API_URL}/url/${encodeURIComponent(code)}/rename?user=${encodeURIComponent(userId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newCode }),
+    },
+  );
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json() as Promise<ShortenResult>;
 }

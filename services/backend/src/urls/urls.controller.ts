@@ -38,8 +38,12 @@ export class UrlsController {
   }
 
   @Put('url/:code/rename')
-  renameCode(@Param('code') code: string, @Body() input: RenameCodeDto) {
-    return this.urlsService.renameCode(code, input.newCode);
+  renameCode(
+    @Param() params: GetByCodeDto,
+    @Query() query: GetByUserDto,
+    @Body() input: RenameCodeDto,
+  ) {
+    return this.urlsService.renameCode(params.code, input.newCode, query.user);
   }
 
   @Get(':code')
