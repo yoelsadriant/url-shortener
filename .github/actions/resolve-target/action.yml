@@ -1,0 +1,31 @@
+name: Resolve k6 target URL
+description: Dispatch input → repo variable → local stack fallback.
+inputs:
+  dispatch_input:
+    required: false
+    default: ''
+  repo_var:
+    required: false
+    default: ''
+outputs:
+  mode:
+    value: ${{ steps.resolve.outputs.mode }}
+  url:
+    value: ${{ steps.resolve.outputs.url }}
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      shell: bash
+      env:
+        DISPATCH: ${{ inputs.dispatch_input }}
+        REPO_VAR: ${{ inputs.repo_var }}
+      run: |
+        url="${DISPATCH:-$REPO_VAR}"
+        if [ -z "$url" ]; then
+          echo "mode=local" >> "$GITHUB_OUTPUT"
+          echo "url=http://localhost:3000" >> "$GITHUB_OUTPUT"
+        else
+          echo "mode=external" >> "$GITHUB_OUTPUT"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+        fi
