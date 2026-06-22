@@ -1,7 +1,7 @@
 import { ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { ConfigService } from '@/config/config.service';
+import { ConfigModule, ConfigService } from '@/config/config.service';
 import { AuthModule } from '@/auth/auth.module';
 import { AuthService } from '@/auth/auth.service';
 
@@ -12,13 +12,14 @@ describe('Auth (integration)', () => {
 
   const mockConfig = {
     ddb: { send: ddbSend },
-    userTable: 'users',
-    userUsernameIndex: 'username-index',
+    env: { USER_TABLE: 'users', USER_USERNAME_INDEX: 'username-index' },
     jwt: { secret: 'integration-secret', expiresIn: '7d' },
   };
 
   beforeAll(async () => {
-    const module = await Test.createTestingModule({ imports: [AuthModule] })
+    const module = await Test.createTestingModule({
+      imports: [ConfigModule, AuthModule],
+    })
       .overrideProvider(ConfigService)
       .useValue(mockConfig)
       .compile();

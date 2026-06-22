@@ -1,0 +1,20 @@
+name: Start local backend stack
+description: Boots DynamoDB Local, seeds tables, builds and runs the backend, waits for /health.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        cp services/backend/.env.example services/backend/.env
+        echo "JWT_SECRET=$(openssl rand -base64 32)" >> services/backend/.env
+        docker compose -f services/backend/compose.yml --profile dev up -d dynamodb-local
+        set -a; . ./services/backend/.env; set +a
+        ./services/backend/scripts/init-tables.sh
+        (cd services/backend && npm ci && npm run build && nohup npm run start:prod > /tmp/backend.log 2>&1 &)
+        for i in $(seq 1 60); do
+          curl -fsS http://localhost:3000/health -o /dev/null && exit 0
+          sleep 2
+        done
+        echo "backend never became ready" >&2
+        tail -50 /tmp/backend.log || true
+        exit 1

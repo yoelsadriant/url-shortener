@@ -1,9 +1,8 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import type { Request } from 'express';
 import { User } from '@/users/entity/user';
 import { AuthService } from './auth.service';
-import { LocalAuthGuard } from './guard/local-auth.guard';
-import { JwtAuthGuard } from './guard/jwt-auth.guard';
 import { RegisterDto } from './dto/register.dto';
 
 @Controller('auth')
@@ -17,14 +16,14 @@ export class AuthController {
   }
 
   @Post('login')
-  @UseGuards(LocalAuthGuard)
+  @UseGuards(AuthGuard('local'))
   login(@Req() req: Request) {
     const token = this.auth.login(req.user as User);
     return { token };
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   me(@Req() req: Request) {
     const { userId, username, createdAt } = req.user as User;
     return { userId, username, createdAt };

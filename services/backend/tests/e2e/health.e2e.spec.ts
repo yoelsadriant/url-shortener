@@ -1,14 +1,13 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { InMemoryDdb, createTestApp } from './helpers/app.fixture';
+import { createTestApp } from './helpers/app.fixture';
 
 describe('Health (e2e)', () => {
   let app: INestApplication<App>;
-  const db = new InMemoryDdb();
 
   beforeAll(async () => {
-    app = await createTestApp(db);
+    app = await createTestApp();
   });
 
   afterAll(() => app.close());

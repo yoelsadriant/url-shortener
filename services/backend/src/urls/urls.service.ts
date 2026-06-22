@@ -14,15 +14,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { customAlphabet } from 'nanoid';
+import { randomBytes } from 'node:crypto';
 import { ConfigService } from '../config/config.service';
 import { CreateShortUrlDto } from './dto/create-short-url.dto';
 import { Url } from './entity/url';
 
-const generateCode = customAlphabet(
-  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
-  8,
-);
+const generateCode = () => randomBytes(6).toString('base64url').slice(0, 8);
 
 @Injectable()
 export class UrlsService {
@@ -35,7 +32,7 @@ export class UrlsService {
     try {
       await this.config.ddb.send(
         new PutCommand({
-          TableName: this.config.urlTable,
+          TableName: this.config.env.URL_TABLE,
           Item: {
             code,
             userId,
@@ -60,7 +57,7 @@ export class UrlsService {
   async getByCode(code: string): Promise<Url> {
     const { Item } = await this.config.ddb.send(
       new GetCommand({
-        TableName: this.config.urlTable,
+        TableName: this.config.env.URL_TABLE,
         Key: { code },
       }),
     );
@@ -75,8 +72,8 @@ export class UrlsService {
   async getByUser(userId: string): Promise<Url[]> {
     const { Items } = await this.config.ddb.send(
       new QueryCommand({
-        TableName: this.config.urlTable,
-        IndexName: this.config.urlUserIndex,
+        TableName: this.config.env.URL_TABLE,
+        IndexName: this.config.env.URL_USER_INDEX,
         KeyConditionExpression: 'userId = :id',
         ExpressionAttributeValues: { ':id': userId },
       }),
@@ -99,7 +96,7 @@ export class UrlsService {
           TransactItems: [
             {
               Put: {
-                TableName: this.config.urlTable,
+                TableName: this.config.env.URL_TABLE,
                 Item: {
                   ...item,
                   code: newCode,
@@ -109,7 +106,7 @@ export class UrlsService {
             },
             {
               Delete: {
-                TableName: this.config.urlTable,
+                TableName: this.config.env.URL_TABLE,
                 Key: { code },
                 ConditionExpression: 'userId = :id',
                 ExpressionAttributeValues: { ':id': userId },
@@ -134,7 +131,7 @@ export class UrlsService {
     try {
       await this.config.ddb.send(
         new DeleteCommand({
-          TableName: this.config.urlTable,
+          TableName: this.config.env.URL_TABLE,
           Key: { code },
           ConditionExpression: 'userId = :id',
           ExpressionAttributeValues: { ':id': userId },

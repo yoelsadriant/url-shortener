@@ -1,19 +1,18 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { InMemoryDdb, createTestApp } from './helpers/app.fixture';
+import { createTestApp, resetTables } from './helpers/app.fixture';
 
 describe('URLs (e2e)', () => {
   let app: INestApplication<App>;
-  const db = new InMemoryDdb();
 
   beforeAll(async () => {
-    app = await createTestApp(db);
+    app = await createTestApp();
   });
 
   afterAll(() => app.close());
 
-  beforeEach(() => db.reset());
+  beforeEach(() => resetTables(app));
 
   describe('POST /url', () => {
     it('201 returns a short URL', async () => {
@@ -26,7 +25,7 @@ describe('URLs (e2e)', () => {
         .expect(201);
 
       expect(res.body.shortUrl).toMatch(
-        /^http:\/\/localhost:3000\/[A-Za-z0-9]{8}$/,
+        /^http:\/\/localhost:3000\/[A-Za-z0-9_-]{8}$/,
       );
     });
 

@@ -69,7 +69,7 @@ export default function HomePage() {
 
   return (
     <main className="relative">
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-4 pt-16 pb-16 sm:pt-20 sm:pb-20">
+      <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 px-4 pt-16 pb-16 sm:pt-20 sm:pb-20 min-h-[calc(100vh-64px)]">
         <BackgroundGlow />
 
         <div className="relative max-w-4xl mx-auto text-center">

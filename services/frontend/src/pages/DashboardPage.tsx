@@ -54,26 +54,22 @@ function ProfileCard({ username, initial, joined, linkCount }: ProfileCardProps)
 
   return (
     <Card className="border-slate-200 overflow-hidden">
-      <div className="h-20 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900" />
-      <CardContent className="px-6 pb-6 pt-0 -mt-10">
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <div className="flex items-end gap-4">
-            <div
-              className="h-20 w-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 text-white flex items-center justify-center text-3xl font-bold shadow-lg ring-4 ring-white"
-              aria-hidden
-            >
-              {initial}
-            </div>
-            <div className="pb-1">
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                {username}
-              </h1>
-              <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-0.5">
-                <Calendar className="h-3.5 w-3.5" />
-                Joined {memberSince}
-              </p>
-            </div>
-          </div>
+      <div className="h-24 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900" />
+      <CardContent className="px-6 pb-6 pt-0 -mt-12">
+        <div
+          className="h-20 w-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 text-white flex items-center justify-center text-3xl font-bold shadow-lg ring-4 ring-white"
+          aria-hidden
+        >
+          {initial}
+        </div>
+        <div className="mt-4">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            {username}
+          </h1>
+          <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-1">
+            <Calendar className="h-3.5 w-3.5" />
+            Joined {memberSince}
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3 mt-6">

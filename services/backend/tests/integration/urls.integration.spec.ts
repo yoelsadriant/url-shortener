@@ -1,7 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { Test } from '@nestjs/testing';
-import { ConfigService } from '@/config/config.service';
+import { ConfigModule, ConfigService } from '@/config/config.service';
 import { UrlsModule } from '@/urls/urls.module';
 import { UrlsService } from '@/urls/urls.service';
 
@@ -11,13 +11,14 @@ describe('Urls (integration)', () => {
 
   const mockConfig = {
     ddb: { send: ddbSend },
-    urlTable: 'urls',
-    urlUserIndex: 'user-index',
+    env: { URL_TABLE: 'urls', URL_USER_INDEX: 'user-index' },
     publicBaseUrl: 'http://localhost:3000',
   };
 
   beforeAll(async () => {
-    const module = await Test.createTestingModule({ imports: [UrlsModule] })
+    const module = await Test.createTestingModule({
+      imports: [ConfigModule, UrlsModule],
+    })
       .overrideProvider(ConfigService)
       .useValue(mockConfig)
       .compile();

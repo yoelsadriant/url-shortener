@@ -1,19 +1,18 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { InMemoryDdb, createTestApp } from './helpers/app.fixture';
+import { createTestApp, resetTables } from './helpers/app.fixture';
 
 describe('Auth (e2e)', () => {
   let app: INestApplication<App>;
-  const db = new InMemoryDdb();
 
   beforeAll(async () => {
-    app = await createTestApp(db);
+    app = await createTestApp();
   });
 
   afterAll(() => app.close());
 
-  beforeEach(() => db.reset());
+  beforeEach(() => resetTables(app));
 
   describe('POST /auth/register', () => {
     it('201 returns a JWT token', async () => {
