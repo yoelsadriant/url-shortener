@@ -43,7 +43,7 @@ export const options = {
 };
 
 export function setup() {
-  const username = `loadtest_${Date.now()}`;
+  const username = `load_${Date.now().toString(36)}`.slice(0, 20);
   const password = 'loadtest-password-1';
 
   const reg = http.post(`${BASE_URL}/auth/register`, JSON.stringify({ username, password }), {

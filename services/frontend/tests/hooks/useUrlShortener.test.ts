@@ -57,6 +57,22 @@ describe('useUrlShortener', () => {
     expect(urlActions.shortenUrl).toHaveBeenCalledWith(
       'https://example.com',
       USER_ID,
+      undefined,
+    );
+  });
+
+  it('forwards a custom alias to the action', async () => {
+    vi.mocked(urlActions.shortenUrl).mockResolvedValueOnce(mockResult);
+    const { result } = renderHook(() => useUrlShortener(USER_ID));
+
+    await act(async () => {
+      await result.current.shorten('https://example.com', 'my-alias');
+    });
+
+    expect(urlActions.shortenUrl).toHaveBeenCalledWith(
+      'https://example.com',
+      USER_ID,
+      'my-alias',
     );
   });
 

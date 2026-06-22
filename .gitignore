@@ -27,6 +27,9 @@ services/*/playwright/.cache/
 services/*/coverage/
 services/*/.nyc_output/
 
+# Lighthouse CI
+services/*/.lighthouseci/
+
 # Logs
 *.log
 npm-debug.log*

@@ -1,10 +1,14 @@
 name: load
 
 on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [master, main]
   workflow_dispatch:
     inputs:
       base_url:
-        description: 'Target BASE_URL (defaults to repository variable LOAD_BASE_URL)'
+        description: 'Target BASE_URL (defaults to repository variable LOAD_BASE_URL; falls back to a local stack)'
         required: false
       seed_count:
         description: 'Number of short URLs to seed before the ramp'
@@ -17,8 +21,10 @@ concurrency:
 
 jobs:
   load:
+    # On workflow_run, only run if ci succeeded.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -28,16 +34,43 @@ jobs:
           url="${{ github.event.inputs.base_url }}"
           [ -z "$url" ] && url="${{ vars.LOAD_BASE_URL }}"
           if [ -z "$url" ]; then
-            echo "::error::No target URL — set repository variable LOAD_BASE_URL or pass base_url on dispatch."
-            exit 1
+            echo "mode=local" >> "$GITHUB_OUTPUT"
+            echo "url=http://localhost:3000" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=external" >> "$GITHUB_OUTPUT"
+            echo "url=$url" >> "$GITHUB_OUTPUT"
           fi
-          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: steps.target.outputs.mode == 'local'
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: services/backend/package-lock.json
+
+      - name: start local backend stack
+        if: steps.target.outputs.mode == 'local'
+        run: |
+          cp services/backend/.env.example services/backend/.env
+          echo "JWT_SECRET=$(openssl rand -base64 32)" >> services/backend/.env
+          docker compose -f services/backend/compose.yml --profile dev up -d dynamodb-local
+          set -a; . ./services/backend/.env; set +a
+          ./services/backend/scripts/init-tables.sh
+          (cd services/backend && npm ci && npm run build && nohup npm run start:prod > /tmp/backend.log 2>&1 &)
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:3000/health -o /dev/null && exit 0
+            sleep 2
+          done
+          echo "backend never became ready" >&2
+          tail -50 /tmp/backend.log || true
+          exit 1
 
       - name: run k6 load test
         run: |
           docker run --rm -i \
+            --network host \
             -e BASE_URL='${{ steps.target.outputs.url }}' \
-            -e SEED_COUNT='${{ github.event.inputs.seed_count }}' \
+            -e SEED_COUNT='${{ github.event.inputs.seed_count || '50' }}' \
             -v "$PWD/tests:/tests" \
             -v "$PWD:/work" \
             -w /work \
@@ -50,3 +83,17 @@ jobs:
           name: load-summary-${{ github.run_number }}
           path: summary.json
           retention-days: 30
+
+      - if: always() && steps.target.outputs.mode == 'local'
+        run: |
+          docker compose -f services/backend/compose.yml --profile dev logs --no-color > docker-logs.txt || true
+          cp /tmp/backend.log backend.log 2>/dev/null || true
+
+      - if: failure() && steps.target.outputs.mode == 'local'
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-server-logs
+          path: |
+            docker-logs.txt
+            backend.log
+          retention-days: 7

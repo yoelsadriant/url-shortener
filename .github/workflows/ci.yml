@@ -42,7 +42,16 @@ jobs:
           cache-dependency-path: services/frontend/package-lock.json
       - run: npm ci
       - run: npm run build
-      - run: npm run test:run
+      - run: npm test -- --run
+      - name: lighthouse CI
+        run: npx --yes @lhci/cli@0.14.x autorun
+        continue-on-error: true
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: services/frontend/.lighthouseci
+          retention-days: 7
 
   e2e-frontend:
     runs-on: ubuntu-latest
@@ -65,14 +74,27 @@ jobs:
         run: |
           cp services/backend/.env.example services/backend/.env
           echo "JWT_SECRET=$(openssl rand -base64 32)" >> services/backend/.env
-      - name: start backend stack
-        run: docker compose -f services/backend/compose.yml --profile dev up -d dynamodb-local dynamodb-init backend
+      - name: start DynamoDB Local
+        run: docker compose -f services/backend/compose.yml --profile dev up -d dynamodb-local
+      - name: seed DDB tables
+        run: |
+          set -a; . ./services/backend/.env; set +a
+          ./services/backend/scripts/init-tables.sh
+      - name: build and start backend
+        working-directory: services/backend
+        run: |
+          set -a; . ./.env; set +a
+          npm run build
+          nohup npm run start:prod > /tmp/backend.log 2>&1 &
       - name: wait for backend
         run: |
           for i in $(seq 1 60); do
-            curl -fsS http://localhost:3000/health -o /dev/null && break || true
+            curl -fsS http://localhost:3000/health -o /dev/null && exit 0
             sleep 2
           done
+          echo "backend never became ready" >&2
+          tail -50 /tmp/backend.log || true
+          exit 1
       - name: run Playwright
         working-directory: services/frontend
         run: npm run test:e2e
@@ -83,12 +105,16 @@ jobs:
           path: services/frontend/playwright-report
           retention-days: 7
       - if: always()
-        run: docker compose -f services/backend/compose.yml --profile dev logs --no-color > docker-logs.txt || true
+        run: |
+          docker compose -f services/backend/compose.yml --profile dev logs --no-color > docker-logs.txt || true
+          cp /tmp/backend.log backend.log 2>/dev/null || true
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: docker-logs
-          path: docker-logs.txt
+          name: server-logs
+          path: |
+            docker-logs.txt
+            backend.log
           retention-days: 7
 
   docker-build:
