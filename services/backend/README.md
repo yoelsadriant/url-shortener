@@ -4,7 +4,7 @@ URL-shortener API. NestJS + DynamoDB. JWT auth.
 
 ## Quick start
 
-Requires **Node ≥ 20**, **Docker**, and the **`aws` CLI**.
+Requires **Node ≥ 24**, **Docker**, and the **`aws` CLI**.
 
 ```bash
 npm install

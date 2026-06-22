@@ -3,7 +3,7 @@
 # backend's config without any shell ritual.
 
 [tools]
-node = "22"
+node = "24"
 
 [env]
 _.file = ".env"

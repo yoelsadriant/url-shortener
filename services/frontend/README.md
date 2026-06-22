@@ -4,7 +4,7 @@ URL-shortener UI. React 18 + Vite + Tailwind + shadcn/ui + react-router.
 
 ## Quick start
 
-Requires **Node ≥ 20**. Backend should be running at `http://localhost:3000` — see [../backend/README.md](../backend/README.md).
+Requires **Node ≥ 24**. Backend should be running at `http://localhost:3000` — see [../backend/README.md](../backend/README.md).
 
 ```bash
 npm install
