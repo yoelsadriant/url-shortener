@@ -29,17 +29,7 @@ Optional: install [mise](https://mise.jdx.dev) and run `mise trust` in `services
 
 ## Architecture
 
-```mermaid
-graph TD
-    Browser["Frontend\n(React + Vite · :5173)"]
-    Backend["Backend\n(NestJS · :3000)"]
-    DDB_urls[("urls table")]
-    DDB_users[("users table")]
-
-    Browser -->|HTTP| Backend
-    Backend --> DDB_urls
-    Backend --> DDB_users
-```
+![Architecture diagram](url_shortener_flow.png)
 
 ## Design choices
 
