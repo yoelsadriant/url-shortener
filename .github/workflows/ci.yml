@@ -37,8 +37,12 @@ jobs:
       - name: start DynamoDB Local + seed tables
         run: |
           docker compose -f compose.yml --profile dev up -d dynamodb-local
+          set -a; . .env; set +a
           ./scripts/init-tables.sh
-      - run: npm run test:e2e
+      - name: run e2e
+        run: |
+          set -a; . .env; set +a
+          npm run test:e2e
 
   frontend:
     runs-on: ubuntu-latest
@@ -124,7 +128,13 @@ jobs:
         run: |
           mkdir -p ../services/frontend/dist
           echo '<!doctype html>' > ../services/frontend/dist/index.html
-      - run: npm run synth -- --quiet
+      # Account/region must match the keys cached in infra/cdk.context.json
+      # so the VPC lookup resolves offline (no AWS creds needed).
+      - name: cdk synth
+        env:
+          CDK_DEFAULT_ACCOUNT: '206716568600'
+          CDK_DEFAULT_REGION: ap-southeast-1
+        run: npm run synth -- --quiet
 
   docker-build:
     runs-on: ubuntu-latest
