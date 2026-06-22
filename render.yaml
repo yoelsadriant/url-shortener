@@ -1,0 +1,69 @@
+services:
+  # DynamoDB Local — POC only. Data is in-memory; restart wipes it.
+  - type: pserv
+    name: dynamodb-local
+    runtime: image
+    plan: free
+    region: singapore
+    image:
+      url: docker.io/amazon/dynamodb-local:latest
+    dockerCommand: -jar DynamoDBLocal.jar -sharedDb -inMemory
+
+  - type: web
+    name: url-shortener-backend
+    runtime: docker
+    plan: free
+    region: singapore
+    rootDir: services/backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    # Seed the in-memory DDB on every cold start, then start Nest.
+    dockerCommand: sh -c "node scripts/init-tables.mjs && node dist/main.js"
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: PUBLIC_BASE_URL
+        fromService:
+          type: web
+          name: url-shortener-backend
+          property: host
+      - key: AWS_REGION
+        value: ap-southeast-1
+      - key: AWS_ENDPOINT
+        # Render's internal DNS: <service-name>:<port>
+        value: http://dynamodb-local:8000
+      - key: AWS_ACCESS_KEY_ID
+        value: local
+      - key: AWS_SECRET_ACCESS_KEY
+        value: local
+      - key: URL_TABLE
+        value: urls
+      - key: URL_USER_INDEX
+        value: user-index
+      - key: USER_TABLE
+        value: users
+      - key: USER_USERNAME_INDEX
+        value: username-index
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+
+  - type: web
+    name: url-shortener-frontend
+    runtime: static
+    plan: free
+    rootDir: services/frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: url-shortener-backend
+          property: host
