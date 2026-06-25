@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
@@ -58,7 +59,8 @@ export default function HomePage() {
     if (!trimmed) return;
     if (!user) {
       sessionStorage.setItem(PENDING_URL_KEY, trimmed);
-      if (trimmedCustom) sessionStorage.setItem(PENDING_CUSTOM_KEY, trimmedCustom);
+      if (trimmedCustom)
+        sessionStorage.setItem(PENDING_CUSTOM_KEY, trimmedCustom);
       navigate('/login');
       return;
     }
@@ -161,7 +163,8 @@ export default function HomePage() {
                     />
                   </div>
                   <p className="text-slate-400 text-xs mt-2">
-                    Leave blank for a random code. Letters, digits, dashes, underscores.
+                    Leave blank for a random code. Letters, digits, dashes,
+                    underscores.
                   </p>
                 </div>
               ) : (

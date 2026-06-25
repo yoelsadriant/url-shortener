@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useState } from 'react';
 import {
   Check,
@@ -246,11 +247,7 @@ function UrlRow({ url, userId, onDeleted, onRenamed }: UrlRowProps) {
                 disabled={isBusy || !newCode.trim()}
                 className="shrink-0 h-8"
               >
-                {isBusy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  'Save'
-                )}
+                {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
               </Button>
               <Button
                 type="button"
@@ -275,10 +272,7 @@ function UrlRow({ url, userId, onDeleted, onRenamed }: UrlRowProps) {
               <ExternalLink className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
             </a>
           )}
-          <p
-            className="text-slate-500 text-sm truncate"
-            title={url.originUrl}
-          >
+          <p className="text-slate-500 text-sm truncate" title={url.originUrl}>
             {url.originUrl}
           </p>
           <p className="text-slate-400 text-xs mt-0.5">

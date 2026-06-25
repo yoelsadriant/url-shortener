@@ -28,9 +28,7 @@ export default function DashboardPage() {
             Your links
           </h2>
           {linkCount !== null && (
-            <span className="text-sm text-slate-500">
-              {linkCount} total
-            </span>
+            <span className="text-sm text-slate-500">{linkCount} total</span>
           )}
         </div>
         <UrlList userId={user.userId} onCountChange={setLinkCount} />
@@ -46,7 +44,12 @@ interface ProfileCardProps {
   linkCount: number | null;
 }
 
-function ProfileCard({ username, initial, joined, linkCount }: ProfileCardProps) {
+function ProfileCard({
+  username,
+  initial,
+  joined,
+  linkCount,
+}: ProfileCardProps) {
   const memberSince = joined.toLocaleDateString(undefined, {
     month: 'long',
     year: 'numeric',
