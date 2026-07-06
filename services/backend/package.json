@@ -11,8 +11,8 @@
     "test:e2e": "jest --config ./tests/jest-e2e.json"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1075.0",
-    "@aws-sdk/lib-dynamodb": "^3.1075.0",
+    "@aws-sdk/client-dynamodb": "^3.1079.0",
+    "@aws-sdk/lib-dynamodb": "^3.1079.0",
     "@nestjs/common": "^11.1.27",
     "@nestjs/core": "^11.1.27",
     "@nestjs/jwt": "^11.0.2",
@@ -42,11 +42,11 @@
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^17.7.0",
     "jest": "^29.0.0",
-    "prettier": "^3.9.1",
+    "prettier": "^3.9.4",
     "supertest": "^7.0.0",
     "ts-jest": "^29.1.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.62.0"
+    "typescript-eslint": "^8.62.1"
   },
   "jest": {
     "moduleFileExtensions": [
