@@ -27,7 +27,7 @@ jobs:
           repo_var: ${{ vars.CANARY_BASE_URL }}
 
       - if: steps.target.outputs.mode == 'local'
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: services/backend/.nvmrc
           cache: npm
